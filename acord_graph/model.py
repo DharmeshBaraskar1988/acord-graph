@@ -6,6 +6,7 @@ and the UI never need to know which source format the data came from.
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -85,6 +86,7 @@ class Entity:
     origin: str = "standard"          # standard | custom | extended (standard + custom overlay)
     domain_source: str = ""           # declared | file | inherited | inferred | shared
     used_in_domains: set[str] = field(default_factory=set)
+    story_votes: dict[str, float] = field(default_factory=dict)   # domain -> weight from user stories
     notes: list[str] = field(default_factory=list)
 
     def all_attributes(self, model: "AcordModel", _seen: set[str] | None = None) -> dict[str, Attribute]:
@@ -121,6 +123,9 @@ class UserStory:
     samples: list[dict[str, Any]] = field(default_factory=list)
     acceptance_criteria: list[str] = field(default_factory=list)
     source: str = ""
+    domain_source: str = ""        # declared | folder | entities (from what the samples use)
+    roots: list[str] = field(default_factory=list)    # entity each sample payload represents
+    assets: list[str] = field(default_factory=list)   # images / GIFs stored next to the story
     # filled in by the sample mapper
     used_entities: set[str] = field(default_factory=set)
     used_attributes: set[tuple[str, str]] = field(default_factory=set)
@@ -141,6 +146,8 @@ class AcordModel:
     removed_attributes: dict[tuple[str, str], Attribute] = field(default_factory=dict)
     removed_codelists: dict[str, CodeList] = field(default_factory=dict)
     removed_codes: dict[str, set[str]] = field(default_factory=dict)
+    # untouched copy of every entity that came from a custom / company file (for the mapping view)
+    company_entities: dict[str, Entity] = field(default_factory=dict)
 
     # ---- derived views -------------------------------------------------
     def relationships(self) -> list[Relationship]:
@@ -191,6 +198,8 @@ class AcordModel:
 
     def merge(self, other: "AcordModel") -> None:
         for k, v in other.entities.items():
+            if v.origin == "custom":
+                self.company_entities[k] = copy.deepcopy(v)
             if k in self.entities and v.origin == "custom" and self.entities[k].origin != "custom":
                 self._overlay(self.entities[k], v)
             elif k in self.entities:
@@ -211,5 +220,6 @@ class AcordModel:
             self.codelists[k] = v
         self.stories.update(other.stories)
         self.deprecation_list |= other.deprecation_list
+        self.company_entities.update(other.company_entities)
         self.extra_relationships.extend(other.extra_relationships)
         self.load_log.extend(other.load_log)

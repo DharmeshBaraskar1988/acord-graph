@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{TITLE}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{VIS_JS}}
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body { font:13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:#f8fafc;
+         display:grid; grid-template-rows:auto auto minmax(0,1fr); height:100vh; overflow:hidden; }
+  nav { display:flex; align-items:center; gap:4px; padding:10px 16px 0; background:#fff; border-bottom:1px solid var(--line); }
+  nav button { font:inherit; font-weight:550; border:none; background:none; padding:8px 14px 10px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; }
+  nav button.on { color:var(--ink); border-bottom-color:var(--ink); }
+  nav .chips { margin-left:auto; display:flex; gap:6px; padding-bottom:8px; }
+  .chip { font-size:11.5px; padding:3px 10px; border-radius:99px; background:#f1f5f9; color:#334155; }
+  #bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+  select, input[type=search] { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  button.b { font:inherit; padding:6px 12px; border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer; }
+  button.b:hover { border-color:#93c5fd; color:var(--accent); }
+  .doms { display:flex; flex-wrap:wrap; gap:6px; }
+  .dom { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:99px; border:1px solid var(--line); cursor:pointer; user-select:none; background:#fff; }
+  .dom .d { width:9px; height:9px; border-radius:50%; } .dom.off { opacity:.35; }
+  main { grid-row:3; display:grid; grid-template-columns:minmax(0,1fr) 440px; min-height:0; }
+  #net { position:relative; min-height:0; background:#fff radial-gradient(#e2e8f0 1px, transparent 1px) 0 0/22px 22px; }
+  aside { border-left:1px solid var(--line); background:#fff; overflow:auto; padding:16px 18px; min-height:0; }
+  h2 { font-size:16px; margin:0 0 4px; } h3 { font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:16px 0 6px; }
+  .muted { color:var(--muted); }
+  .pill { display:inline-block; padding:0 8px; border-radius:99px; font-size:11px; line-height:19px; background:#f1f5f9; color:#334155; margin:1px 3px 1px 0; cursor:default; }
+  .pill.e { cursor:pointer; } .pill.root { background:#0f172a; color:#fff; }
+  .pill.err { background:#fee2e2; color:#991b1b; } .pill.warn { background:#fef3c7; color:#92400e; }
+  .lst { width:100%; border-collapse:collapse; } .lst td { padding:6px 4px; border-bottom:1px solid #f1f5f9; vertical-align:top; cursor:pointer; }
+  .lst tr:hover td { background:#f8fafc; } .lst tr.sel td { background:#eff6ff; }
+  /* inside view */
+  #inside { display:none; grid-row:3; grid-template-columns:minmax(0,1fr) 400px; min-height:0; }
+  #tree { overflow:auto; padding:18px 22px 40px; min-height:0; }
+  #iside { border-left:1px solid var(--line); background:#fff; overflow:auto; padding:16px 18px; }
+  .node { border:1.5px solid var(--c); border-radius:12px; background:#fff; margin:0 0 12px; max-width:760px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
+  .node > .hd { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg); border-radius:10px 10px 0 0; border-bottom:1px solid var(--line); }
+  .node > .hd b { font-size:14px; } .node > .hd .via { color:var(--muted); font-size:12px; }
+  .node > .hd .dm { margin-left:auto; font-size:11px; color:var(--c); font-weight:600; }
+  .rows { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .rows td { padding:5px 12px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+  .rows tr:last-child td { border-bottom:none; }
+  .rows td.k { font-weight:600; width:30%; } .rows td.v { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:#334155; word-break:break-all; }
+  .rows td.t { color:var(--muted); width:24%; } .rows td.s { width:26px; text-align:center; }
+  .rows tr.error td.k { color:#b91c1c; } .rows tr.error { background:#fef2f2; }
+  .rows tr.warn { background:#fffbeb; } .rows tr.missing { background:#fff7ed; } .rows tr.missing td.k { color:#c2410c; }
+  .rows tr.dep td.k { text-decoration:line-through; color:#6b7280; }
+  .rows .m { display:block; font-family:inherit; font-size:11.5px; color:#b45309; } .rows tr.error .m { color:#b91c1c; }
+  .kids { margin-left:26px; padding-left:16px; border-left:2px dashed #cbd5e1; margin-top:-4px; padding-top:10px; }
+  .lg { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:#475569; margin:0 0 14px; }
+  .lg span { display:inline-flex; gap:6px; align-items:center; } .sq { width:12px; height:12px; border-radius:3px; display:inline-block; }
+  img.asset { max-width:100%; border:1px solid var(--line); border-radius:8px; margin:6px 0; }
+</style>
+</head>
+<body>
+<nav>
+  <button id="t1" class="on">Overview</button><button id="t2">Inside a story</button>
+  <div class="chips" id="chips"></div>
+</nav>
+<div id="bar">
+  <div class="doms" id="doms"></div>
+  <input type="search" id="q" placeholder="Find story or entity…" style="min-width:220px">
+  <select id="ent"><option value="">Stories that use entity…</option></select>
+  <button class="b" id="reset">Reset</button>
+  <span class="muted" style="font-size:12px">Click a domain chip to hide it, double-click to show only that domain · click a story for details, double-click to look inside</span>
+</div>
+<main id="ov">
+  <div id="net"></div>
+  <aside id="side"></aside>
+</main>
+<section id="inside">
+  <div id="tree"></div>
+  <aside id="iside"></aside>
+</section>
+<script>
+const D = {{DATA}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tint = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const col = d => D.colors[d] || '#64748b';
+$('chips').innerHTML = `<span class="chip">${D.counts.domains} story domains</span><span class="chip">${D.counts.stories} stories</span><span class="chip">${D.counts.entities} ACORD entities used</span>`;
+
+// ---------- overview graph
+const nodes = new vis.DataSet(D.nodes), edges = new vis.DataSet(D.edges);
+const net = new vis.Network($('net'), { nodes, edges }, {
+  layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 330, nodeSpacing: 52, treeSpacing: 90, parentCentralization: true } },
+  physics: false, interaction: { hover: true, tooltipDelay: 100, hideEdgesOnDrag: true },
+  edges: { smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.5 } },
+});
+const active = new Set(D.domains.map(d => d[0]));
+D.domains.forEach(([d, c]) => {
+  const el = document.createElement('span'); el.className = 'dom'; el.dataset.d = d;
+  el.innerHTML = `<span class="d" style="background:${c}"></span>${esc(d)}`;
+  el.onclick = () => { active.has(d) ? active.delete(d) : active.add(d); el.classList.toggle('off'); refresh(); };
+  el.ondblclick = () => { active.clear(); active.add(d); document.querySelectorAll('.dom').forEach(x => x.classList.toggle('off', x.dataset.d !== d)); refresh(); };
+  $('doms').appendChild(el);
+});
+Object.keys(D.entityDomains).sort().forEach(e => { const o = document.createElement('option'); o.value = e; o.textContent = `${e} (${D.entityDomains[e]})`; $('ent').appendChild(o); });
+let selStory = null;
+function refresh() {
+  const q = $('q').value.trim().toLowerCase(), fe = $('ent').value;
+  const okStory = s => active.has(s.domain) && (!fe || s.entities.includes(fe) || s.declared.includes(fe))
+    && (!q || (s.id + ' ' + s.title + ' ' + s.entities.join(' ')).toLowerCase().includes(q));
+  const shownS = new Set(D.stories.filter(okStory).map(s => 'S:' + s.id));
+  const shown = new Set([...shownS]);
+  D.edges.forEach(e => { if (shownS.has(e.from)) shown.add(e.to); if (shownS.has(e.to)) shown.add(e.from); });
+  nodes.update(D.nodes.map(n => ({ id: n.id, hidden: !shown.has(n.id) })));
+  edges.update(D.edges.map(e => ({ id: e.id, hidden: !(shown.has(e.from) && shown.has(e.to)) })));
+  renderSide();
+  setTimeout(() => net.fit({ animation: { duration: 250 } }), 30);
+}
+['q', 'ent'].forEach(id => $(id).addEventListener('input', refresh));
+$('reset').onclick = () => { $('q').value = ''; $('ent').value = ''; D.domains.forEach(d => active.add(d[0])); document.querySelectorAll('.dom').forEach(x => x.classList.remove('off')); selStory = null; refresh(); };
+
+function storyCard(s) {
+  return `<h2>${esc(s.id)} · ${esc(s.title)}</h2>
+    <div><span class="pill" style="background:${tint(col(s.domain), .14)};color:${col(s.domain)}">${esc(s.domain)}</span>
+      <span class="muted">domain ${esc(s.how)}</span></div>
+    ${s.desc ? `<p>${esc(s.desc)}</p>` : ''}
+    <h3>What it uses</h3>
+    <div>${s.roots.map(e => `<span class="pill root e" onclick="pickEnt('${esc(e)}')" title="the sample is about this entity">${esc(e)}</span>`).join('')}
+      ${s.entities.filter(e => !s.roots.includes(e)).map(e => `<span class="pill e" style="border:1px solid ${col(D.entityDomains[e])}" onclick="pickEnt('${esc(e)}')">${esc(e)}</span>`).join('')}</div>
+    <div class="muted" style="font-size:12px;margin-top:4px">Black = the entity the sample is about. Domains of the entities: ${[...new Set(s.entities.map(e => D.entityDomains[e]))].map(esc).join(', ') || '—'}</div>
+    <h3>Sample check</h3>
+    <div>${s.errors ? `<span class="pill err">${s.errors} errors</span>` : ''}${s.warnings ? `<span class="pill warn">${s.warnings} warnings</span>` : ''}${!s.errors && !s.warnings ? '<span class="muted">matches the model</span>' : ''}
+      <span class="muted"> · ${s.nSamples} sample(s)</span></div>
+    ${s.criteria.length ? `<h3>Acceptance criteria</h3><ul style="padding-left:18px;margin:0">${s.criteria.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+    <p><button class="b" onclick="openInside('${esc(s.id)}')">See inside the story →</button></p>
+    <div class="muted" style="font-size:11.5px">${esc(s.source)}</div>`;
+}
+window.pickEnt = e => { $('ent').value = e; tab(1); refresh(); };
+function renderSide() {
+  const s = selStory && D.stories.find(x => x.id === selStory);
+  const fe = $('ent').value;
+  const list = D.stories.filter(x => active.has(x.domain) && (!fe || x.entities.includes(fe) || x.declared.includes(fe)));
+  const byDom = {};
+  list.forEach(x => (byDom[x.domain] ||= []).push(x));
+  $('side').innerHTML = (s ? storyCard(s) + '<hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0">' : '') +
+    `<h3>${fe ? `Stories that use ${esc(fe)}` : 'Stories by domain'} · ${list.length}</h3>` +
+    Object.entries(byDom).map(([d, ss]) => `<div style="margin-top:8px;font-weight:650;color:${col(d)}">${esc(d)} · ${ss.length}</div>
+      <table class="lst">${ss.map(x => `<tr class="${x.id === selStory ? 'sel' : ''}" data-id="${esc(x.id)}"><td><b>${esc(x.id)}</b> ${esc(x.title)}
+        <div class="muted" style="font-size:11.5px">${x.roots.map(esc).join(', ') || x.entities.slice(0, 3).map(esc).join(', ')}${x.errors ? ` · <span style="color:#b91c1c">${x.errors} errors</span>` : ''}</div></td></tr>`).join('')}</table>`).join('');
+  $('side').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => { selStory = tr.dataset.id; net.selectNodes(['S:' + selStory]); net.focus('S:' + selStory, { scale: 1, animation: true }); renderSide(); });
+}
+net.on('click', p => { const id = p.nodes[0]; if (!id) return;
+  if (id.startsWith('S:')) { selStory = id.slice(2); renderSide(); }
+  else if (id.startsWith('E:')) { $('ent').value = id.slice(2); refresh(); }
+  else if (id.startsWith('D:')) { const d = id.slice(2); active.clear(); active.add(d); document.querySelectorAll('.dom').forEach(x => x.classList.toggle('off', x.dataset.d !== d)); refresh(); } });
+net.on('doubleClick', p => { const id = p.nodes[0]; if (id && id.startsWith('S:')) openInside(id.slice(2)); });
+
+// ---------- inside a story
+const ICON = { ok: '<span style="color:#16a34a">✓</span>', error: '<span style="color:#dc2626">✕</span>', warn: '<span style="color:#d97706">!</span>',
+               missing: '<span style="color:#ea580c">∅</span>', dep: '<span style="color:#6b7280">⊘</span>' };
+function nodeHtml(n) {
+  if (n.error) return `<div class="node" style="--c:#dc2626;--bg:#fef2f2"><div class="hd"><b>${esc(n.path)}</b></div><div style="padding:10px 12px;color:#b91c1c">${esc(n.error)}</div></div>`;
+  const c = col(n.domain);
+  return `<div class="node" style="--c:${c};--bg:${tint(c, .08)}">
+    <div class="hd"><b>${esc(n.entity)}</b>${n.via ? `<span class="via">via ${esc(n.via)}</span>` : '<span class="via">sample root</span>'}<span class="dm">${esc(n.domain)}</span></div>
+    <table class="rows">${n.rows.map(r => `<tr class="${r.st}"><td class="s">${ICON[r.st] || ''}</td><td class="k">${esc(r.k)}${r.req ? ' <span class="muted" style="font-weight:400">*</span>' : ''}</td>
+      <td class="v">${esc(r.v)}${r.msg.map(m => `<span class="m">${esc(m)}</span>`).join('')}</td>
+      <td class="t">${esc(r.t)}${r.cl ? `<div style="color:#0369a1">◇ ${esc(r.cl)}</div>` : ''}</td></tr>`).join('')}</table>
+  </div>${n.kids.length ? `<div class="kids">${n.kids.map(nodeHtml).join('')}</div>` : ''}`;
+}
+let insideId = null;
+function openInside(id) {
+  insideId = id; tab(2);
+  const s = D.stories.find(x => x.id === id);
+  if (!s) return;
+  $('tree').innerHTML = `<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+      <select id="pickS">${D.stories.map(x => `<option value="${esc(x.id)}" ${x.id === id ? 'selected' : ''}>${esc(x.domain)} · ${esc(x.id)} · ${esc(x.title)}</option>`).join('')}</select></div>
+    <div class="lg"><span>${ICON.ok} matches an ACORD attribute</span><span>${ICON.error} not in ACORD / invalid code</span><span>${ICON.warn} check (type, length, implicit link)</span>
+      <span>${ICON.missing} required but missing</span><span>${ICON.dep} deprecated</span><span><span class="sq" style="border:2px solid #64748b"></span> box colour = entity's domain</span></div>
+    ${s.trees.length ? s.trees.map((t, i) => `<h3>Sample ${i + 1}</h3>` + nodeHtml(t)).join('') : '<p class="muted">This story has no sample payload.</p>'}`;
+  $('pickS').onchange = () => openInside($('pickS').value);
+  const doms = {};
+  const count = n => { if (n.domain) doms[n.domain] = (doms[n.domain] || 0) + 1; n.kids.forEach(count); };
+  s.trees.forEach(count);
+  $('iside').innerHTML = storyCard(s).replace(/<p><button[^]*?<\/p>/, '') +
+    `<h3>Inside the samples, by domain</h3>${Object.entries(doms).map(([d, n]) => `<span class="pill" style="background:${tint(col(d), .14)};color:${col(d)}">${esc(d)} · ${n} object(s)</span>`).join('') || '—'}
+     ${s.assets.length ? `<h3>Images / GIFs</h3>${s.assets.map(a => a.src ? `<img class="asset" src="${a.src}" alt="${esc(a.name)}"><div class="muted" style="font-size:11px">${esc(a.name)}</div>` : `<div class="muted">${esc(a.name)} (too large to embed)</div>`).join('')}` : ''}`;
+}
+function tab(i) {
+  $('t1').classList.toggle('on', i === 1); $('t2').classList.toggle('on', i === 2);
+  $('ov').style.display = i === 1 ? 'grid' : 'none'; $('bar').style.display = i === 1 ? 'flex' : 'none';
+  $('inside').style.display = i === 2 ? 'grid' : 'none';
+  if (i === 2 && !insideId && D.stories.length) openInside(D.stories[0].id);
+  if (i === 1) net.redraw();
+}
+$('t1').onclick = () => tab(1); $('t2').onclick = () => tab(2);
+refresh();
+</script>
+</body>
+</html>

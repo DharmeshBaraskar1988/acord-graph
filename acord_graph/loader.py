@@ -256,6 +256,42 @@ def _looks_like_schema(v: Any) -> bool:
                                     v.get("type") == "object")
 
 
+def _refs_in(obj: Any, out: set[str]) -> set[str]:
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == "$ref" and isinstance(v, str):
+                out.add(ref_name(v))
+            else:
+                _refs_in(v, out)
+    elif isinstance(obj, list):
+        for v in obj:
+            _refs_in(v, out)
+    return out
+
+
+def path_tag_domains(data: Any) -> dict[str, str]:
+    """OpenAPI: schemas used by an operation get the operation's first tag (or first path segment) as domain."""
+    out: dict[str, str] = {}
+    if not isinstance(data, dict) or not isinstance(data.get("paths"), dict):
+        return out
+    for path, item in data["paths"].items():
+        if not isinstance(item, dict):
+            continue
+        seg = next((x for x in path.strip("/").split("/")
+                    if x and not x.startswith("{") and not re.fullmatch(r"v\d+|api|rest|ngds|acord", x, re.I)), "")
+        for method, op in item.items():
+            if not isinstance(op, dict):
+                continue
+            tags = op.get("tags") or []
+            dom = str(tags[0]) if tags else seg
+            if not dom:
+                continue
+            dom = dom[:1].upper() + dom[1:]
+            for name in _refs_in(op, set()):
+                out.setdefault(name, dom)
+    return out
+
+
 def extract_entities(data: Any, source: str, domain_hint: str) -> tuple[dict[str, Entity], list[Relationship]]:
     ents: dict[str, Entity] = {}
     rels: list[Relationship] = []
@@ -426,8 +462,9 @@ def _story_from(rec: dict, source: str, idx: int) -> UserStory:
     desc = str(_first(rec, ("description", "narrative", "story", "text", "userStory")))
     if not desc and any(k in rec for k in ("asA", "iWant", "soThat")):
         desc = f"As a {rec.get('asA', '')}, I want {rec.get('iWant', '')} so that {rec.get('soThat', '')}"
+    dom = str(_first(rec, DOMAIN_KEYS))
     st = UserStory(id=sid, title=str(_first(rec, ("title", "name", "summary"), sid)),
-                   description=desc, domain=str(_first(rec, DOMAIN_KEYS)), source=source)
+                   description=desc, domain=dom, source=source, domain_source="declared" if dom else "")
     ents = _first(rec, ("entities", "objects", "relatedEntities", "dataObjects"), [])
     st.declared_entities = [ref_name(e if isinstance(e, str) else _first(e, ("name", "entity")))
                             for e in (ents if isinstance(ents, list) else [ents])]
@@ -444,7 +481,13 @@ def _story_from(rec: dict, source: str, idx: int) -> UserStory:
     return st
 
 
-def extract_stories(data: Any, source: str) -> dict[str, UserStory]:
+STORY_KEYS = ("title", "asA", "iWant", "soThat", "storyId", "sample", "samples", "acceptanceCriteria",
+              "userStory", "narrative", "example", "examples", "payload")
+
+
+def extract_stories(data: Any, source: str, hint: str = "", force: bool = False) -> dict[str, UserStory]:
+    """force=True: the file came from the user-stories area, so a file with no story structure
+    is read as one story whose sample is the file itself (a plain sample payload)."""
     out: dict[str, UserStory] = {}
     recs: list[dict] = []
     if isinstance(data, dict):
@@ -454,10 +497,18 @@ def extract_stories(data: Any, source: str) -> dict[str, UserStory]:
         if not recs and re.search(r"stor(y|ies)|us[-_ ]?\d", source, re.I) and \
                 any(k in data for k in ("title", "asA", "iWant", "storyId", "sample", "samples", "acceptanceCriteria")):
             recs.append(data)
-    elif isinstance(data, list) and re.search(r"stor(y|ies)", source, re.I):
+    elif isinstance(data, list) and (force or re.search(r"stor(y|ies)", source, re.I)):
         recs = [r for r in data if isinstance(r, dict)]
+    if force and not recs and isinstance(data, dict):
+        if any(k in data for k in STORY_KEYS):
+            recs.append(data)
+        else:   # a bare sample payload: the file name is the story
+            stem = Path(source).stem
+            recs.append({"id": stem, "title": re.sub(r"[_-]+", " ", stem), "sample": data})
     for i, r in enumerate(recs, 1):
         st = _story_from(r, source, i)
+        if not st.domain and hint and hint != "Unassigned":
+            st.domain, st.domain_source = hint, "folder"
         out[st.id] = st
     return out
 
@@ -508,12 +559,22 @@ def extract_deprecations(data: Any, source: str) -> set[str]:
 CUSTOM_FILE_RE = re.compile(r"custom|extension|[-_]ext\b|overlay|client|carrier", re.I)
 
 
-def load_json_bytes(raw: bytes | str, source: str, domain_hint: str = "", custom: bool | None = None) -> AcordModel:
-    """custom=None -> decide from the file ('x-custom': true) or its name (custom/extension/...)."""
+def load_json_bytes(raw: bytes | str, source: str, domain_hint: str = "", custom: bool | None = None,
+                    kind: str = "") -> AcordModel:
+    """custom=None -> decide from the file ('x-custom': true) or its name (custom/extension/...).
+    kind='stories' -> the file is from the user-stories area (see extract_stories)."""
     data = json.loads(raw)
     hint = domain_hint or "Unassigned"
     model = AcordModel()
+    if kind == "stories":
+        model.stories.update(extract_stories(data, source, domain_hint, force=True))
+        model.load_log.append(f"{source}: {len(model.stories)} user stories")
+        return model
     ents, rels = extract_entities(data, source, hint)
+    for name, dom in path_tag_domains(data).items():
+        e = ents.get(name)
+        if e and e.domain_source in ("", "file"):
+            e.domain, e.domain_source = dom, "tag"
     if custom is None:
         custom = bool(isinstance(data, dict) and (data.get("x-custom") or data.get("custom"))) \
             or bool(CUSTOM_FILE_RE.search(source))

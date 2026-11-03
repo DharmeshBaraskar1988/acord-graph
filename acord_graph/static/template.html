@@ -16,12 +16,20 @@
           box-shadow:0 10px 30px -12px rgba(15,23,42,.18), 0 1px 2px rgba(15,23,42,.05); }
 
   /* left controls */
-  #ctl { position:fixed; top:14px; left:14px; width:268px; max-height:calc(100vh - 28px); overflow:auto; padding:14px; z-index:5; }
+  #ctl { position:fixed; top:14px; left:14px; width:268px; padding:14px; z-index:5; }
   #ctl.min .body { display:none; }
   .top { display:flex; gap:8px; align-items:center; }
   .search { flex:1; position:relative; }
   .search input { width:100%; padding:8px 10px 8px 30px; border:1px solid var(--line); border-radius:9px; font:inherit; background:#fff; outline:none; }
   .search input:focus { border-color:#93c5fd; box-shadow:0 0 0 3px #dbeafe; }
+  #results { position:absolute; top:52px; left:14px; right:14px; z-index:9; max-height:360px; overflow:auto; display:none;
+             background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 30px -10px rgba(15,23,42,.25); }
+  #results .res { display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; border-bottom:1px solid #f1f5f9; }
+  #results .res:hover, #results .res.on { background:#eff6ff; }
+  #results .res .k { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#64748b; background:#f1f5f9; border-radius:5px; padding:1px 5px; flex:none; }
+  #results .res .s { color:#64748b; font-size:11.5px; margin-left:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:45%; }
+  #results .none { padding:10px; color:#64748b; }
+  #ctl { overflow:visible; } #ctl .body { max-height:calc(100vh - 100px); overflow:auto; }
   .search svg { position:absolute; left:9px; top:9px; width:14px; height:14px; color:#94a3b8; }
   .icon { border:1px solid var(--line); background:#fff; border-radius:9px; width:34px; height:34px; display:grid; place-items:center; cursor:pointer; color:#475569; flex:none; }
   .icon:hover { color:var(--accent); border-color:#bfdbfe; }
@@ -84,10 +92,18 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" placeholder="Search entity, attribute, code…" autocomplete="off">
     </div>
+    <div id="results"></div>
     <button class="icon" id="min" title="Collapse">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"/></svg></button>
   </div>
   <div class="body">
+    <h3>Focus</h3>
+    <div style="display:flex;gap:6px">
+      <select id="fEnt" style="flex:1;min-width:0;font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:9px;background:#fff"><option value="">Focus an entity…</option></select>
+      <select id="fHop" title="How far out to show" style="font:inherit;padding:7px 6px;border:1px solid var(--line);border-radius:9px;background:#fff">
+        <option value="1">1 level</option><option value="2" selected>2 levels</option><option value="3">3 levels</option></select>
+    </div>
+    <div class="seg" style="grid-template-columns:1fr 1fr;margin-top:6px"><button id="fUp">Only what it uses</button><button id="fClear">Clear focus</button></div>
     <h3>Domains <span><a id="all">All</a><a id="none">None</a></span></h3>
     <div class="doms" id="domains"></div>
 
@@ -96,6 +112,7 @@
     <label class="tg">User stories <input type="checkbox" class="cb" id="showS" checked><span class="sw"></span></label>
     <label class="tg">Relationship labels <input type="checkbox" class="cb" id="showE"><span class="sw"></span></label>
     <label class="tg" title="An entity used by several domains also appears when any of those domains is selected">Shared entities in every domain they're used in <input type="checkbox" class="cb" id="showShared" checked><span class="sw"></span></label>
+    <label class="tg" title="Fade everything except custom entities and entities with custom or changed attributes">Custom only <input type="checkbox" class="cb" id="onlyCustom"><span class="sw"></span></label>
     <label class="tg">Domain areas <input type="checkbox" class="cb" id="showHull" checked><span class="sw"></span></label>
 
     <h3>Layout</h3>
@@ -108,7 +125,8 @@
       <div class="leg">
         <div><span class="chipbox"></span>Entity (colour = home domain)</div>
         <div><span class="chipbox" style="border-width:2.5px"></span>Shared across domains</div>
-        <div><span class="chipbox" style="border-style:dashed;border-color:#ea580c"></span>Custom entity</div>
+        <div><span class="chipbox" style="border-style:dashed;border-color:#f97316;background:#ffedd5"></span>Custom / company entity</div>
+        <div><span class="chipbox" style="border-color:#f97316;border-width:2.5px"></span>Standard entity extended by custom file</div>
         <div><span class="ln" style="border-color:#475569"></span>Composition · 0..1 / 1..1</div>
         <div><span class="ln" style="border-color:#2563eb"></span>Association · 0..* / 1..*</div>
         <div><span class="ln" style="border-color:#9333ea;border-top-style:dashed"></span>Extends (inheritance)</div>
@@ -148,7 +166,7 @@ DATA.domains.forEach(([d, c, n]) => {
   const el = document.createElement('div');
   el.className = 'dom'; el.dataset.d = d; el.style.setProperty('--ring', hexA(c, .18));
   el.innerHTML = `<span class="dot" style="background:${c}"></span><span>${esc(d)}</span><span class="n">${n}</span>`;
-  el.title = 'Click to toggle · double-click to show only this domain';
+  el.title = 'Click to toggle · double-click to show only this domain and zoom to it';
   el.onclick = () => { active.has(d) ? active.delete(d) : active.add(d); sync(); };
   el.ondblclick = () => { active.clear(); active.add(d); sync(); setTimeout(() => fitView(true), 50); };
   domBox.appendChild(el);
@@ -165,20 +183,94 @@ function visible(n) {
   if (n.kind === 'story') return active.has(n.domain);
   return true;
 }
+// ---- focus on one entity and its neighbourhood
+let focusId = '', focusOut = false;
+DATA.nodes.filter(n => n.kind === 'entity').map(n => n.id).sort().forEach(id => {
+  const o = document.createElement('option'); o.value = id; o.textContent = id.slice(2); $('fEnt').appendChild(o); });
+function focusSet() {
+  if (!focusId) return null;
+  const hops = +$('fHop').value, keep = new Set([focusId]);
+  let frontier = [focusId];
+  for (let i = 0; i < hops; i++) {
+    const nxt = [];
+    DATA.edges.forEach(e => {
+      if (e.kind === 'codelist' || e.kind === 'story') return;
+      const pairs = focusOut ? [[e.from, e.to]] : [[e.from, e.to], [e.to, e.from]];
+      pairs.forEach(([a, b]) => { if (frontier.includes(a) && !keep.has(b)) { keep.add(b); nxt.push(b); } });
+    });
+    frontier = nxt;
+  }
+  DATA.edges.forEach(e => { if ((e.kind === 'codelist' && keep.has(e.from)) || (e.kind === 'story' && keep.has(e.to))) { keep.add(e.from); keep.add(e.to); } });
+  return keep;
+}
+function radialLayout(keep) {
+  // focused entity in the middle, each level on its own ring; code lists / stories next to their entity
+  const dist = { [focusId]: 0 }; let frontier = [focusId];
+  for (let i = 1; i <= 3; i++) {
+    const nxt = [];
+    DATA.edges.forEach(e => { if (e.kind === 'codelist' || e.kind === 'story') return;
+      [[e.from, e.to], [e.to, e.from]].forEach(([a, b]) => { if (frontier.includes(a) && keep.has(b) && dist[b] === undefined) { dist[b] = i; nxt.push(b); } }); });
+    frontier = nxt;
+  }
+  const rings = {};
+  Object.entries(dist).forEach(([id, d]) => (rings[d] ||= []).push(id));
+  const pos = { [focusId]: { x: 0, y: 0 } };
+  Object.entries(rings).forEach(([d, ids]) => { if (+d === 0) return;
+    const r = 200 * d + Math.max(0, ids.length - 8) * 12;
+    ids.sort().forEach((id, i) => { const a = (2 * Math.PI * i) / ids.length - Math.PI / 2 + d * 0.35; pos[id] = { x: r * Math.cos(a), y: r * Math.sin(a) }; }); });
+  const sat = {};
+  DATA.edges.forEach(e => {
+    const owner = e.kind === 'codelist' ? e.from : e.kind === 'story' ? e.to : null, leaf = e.kind === 'codelist' ? e.to : e.from;
+    if (!owner || !pos[owner] || pos[leaf] || !keep.has(leaf)) return;
+    const k = (sat[owner] = (sat[owner] || 0) + 1), base = Math.atan2(pos[owner].y, pos[owner].x) || 0, a = base + (k % 2 ? 1 : -1) * 0.35 * Math.ceil(k / 2);
+    pos[leaf] = { x: pos[owner].x + 95 * Math.cos(a), y: pos[owner].y + 95 * Math.sin(a) };
+  });
+  nodes.update(Object.entries(pos).map(([id, p]) => ({ id, x: p.x, y: p.y })));
+}
+function applyFocus(id) {
+  focusId = id || ''; $('fEnt').value = focusId;
+  if (!focusId) nodes.update(DATA.nodes.map(n => ({ id: n.id, x: n.x, y: n.y })));   // restore the domain layout
+  refresh();
+  if (focusId) {
+    const fs = focusSet();
+    radialLayout(fs); show(focusId); network.selectNodes([focusId]);
+    setTimeout(() => {
+      const ids = [...fs].filter(x => nodes.get(x) && !nodes.get(x).hidden), pos = network.getPositions(ids);
+      const xs = ids.map(i => pos[i].x), ys = ids.map(i => pos[i].y);
+      const bw = Math.max(...xs) - Math.min(...xs) + 220, bh = Math.max(...ys) - Math.min(...ys) + 120;
+      const left = $('ctl').offsetWidth + 30, right = $('drawer').offsetWidth + 30;
+      const sc = Math.min((innerWidth - left - right) / bw, (innerHeight - 40) / bh, 1.3);
+      network.moveTo({ position: { x: (Math.max(...xs) + Math.min(...xs)) / 2, y: (Math.max(...ys) + Math.min(...ys)) / 2 },
+                       scale: sc, offset: { x: (left - right) / 2, y: 0 }, animation: { duration: 350 } });
+    }, 40);
+  } else fitView(true);
+}
+$('fEnt').onchange = () => applyFocus($('fEnt').value);
+$('fHop').onchange = () => applyFocus(focusId);
+$('fUp').onclick = ev => { focusOut = !focusOut; ev.target.classList.toggle('on', focusOut); applyFocus(focusId); };
+$('fClear').onclick = () => applyFocus('');
+
 function refresh() {
   const q = $('q').value.trim().toLowerCase();
+  const fset = focusSet();
   const lab = $('showE').checked;
-  const vis_ = new Set(DATA.nodes.filter(visible).map(n => n.id));
+  const vis_ = new Set(DATA.nodes.filter(n => fset ? fset.has(n.id) && (n.kind !== 'codelist' || $('showC').checked) && (n.kind !== 'story' || $('showS').checked) : visible(n)).map(n => n.id));
   const linked = new Set();
   DATA.edges.forEach(e => { if (vis_.has(e.from) && vis_.has(e.to)) { linked.add(e.from); linked.add(e.to); } });
   DATA.nodes.forEach(n => { if ((n.kind === 'codelist' || n.kind === 'missing') && !linked.has(n.id)) vis_.delete(n.id); });
   let match = null;
+  if ($('onlyCustom').checked) {
+    match = new Set(DATA.nodes.filter(n => n.origin === 'custom' || n.origin === 'extended').map(n => n.id));
+  }
   if (q) {
-    match = new Set();
+    match = match || new Set();
+    const pre = $('onlyCustom').checked;
+    if (!pre) match = new Set();
     DATA.nodes.forEach(n => {
       const d = DATA.details[n.id];
       const hay = (n.id + ' ' + (d ? JSON.stringify(d.attributes || d.values || d.title || '') : '')).toLowerCase();
-      if (hay.includes(q)) match.add(n.id);
+      if (hay.includes(q) && (!$('onlyCustom').checked || match.has(n.id))) match.add(n.id);
+      else if ($('onlyCustom').checked) match.delete(n.id);
     });
   }
   nodes.update(DATA.nodes.map(n => ({ id: n.id, hidden: !vis_.has(n.id),
@@ -186,27 +278,30 @@ function refresh() {
   edges.update(DATA.edges.map(e => ({ id: e.id, hidden: !(vis_.has(e.from) && vis_.has(e.to)), label: lab ? e._label : '' })));
   network && network.redraw();
 }
-['q', 'showC', 'showS', 'showE', 'showShared'].forEach(id => $(id).addEventListener('input', refresh));
+['q', 'showC', 'showS', 'showE', 'showShared', 'onlyCustom'].forEach(id => $(id).addEventListener('input', refresh));
 $('showHull').addEventListener('input', () => network.redraw());
 $('min').onclick = () => $('ctl').classList.toggle('min');
+
+// ---- big models: code lists start hidden (they sit around their entity when shown)
+if (DATA.big) { $('showC').checked = false; $('fHop').value = '1'; }
 
 // ---- network
 const network = new vis.Network($('net'), { nodes, edges }, {
   physics: { enabled: false, solver: 'forceAtlas2Based',
              forceAtlas2Based: { gravitationalConstant: -45, springLength: 110, avoidOverlap: 0.6 },
              stabilization: { iterations: 150 } },
-  interaction: { hover: true, multiselect: true, tooltipDelay: 120, hideEdgesOnDrag: true },
+  interaction: { hover: true, multiselect: true, tooltipDelay: 120, hideEdgesOnDrag: true, hideEdgesOnZoom: !!DATA.big },
   edges: { smooth: { type: 'curvedCW', roundness: 0.12 }, selectionWidth: 1.5, hoverWidth: 0.6 },
   nodes: { chosen: true },
 });
 
 // domain areas drawn behind the graph
 network.on('beforeDrawing', ctx => {
-  if (!$('showHull').checked) return;
+  if (!$('showHull').checked || focusId) return;
   const groups = {};
   const pos = network.getPositions();
   nodes.get({ filter: n => !n.hidden }).forEach(n => {
-    if (n.kind === 'missing' || !active.has(n.cluster)) return;
+    if (n.kind === 'missing' || n.kind === 'codelist' || n.kind === 'story' || !active.has(n.cluster)) return;
     const p = pos[n.id]; if (!p) return;
     const b = network.getBoundingBox(n.id);
     (groups[n.cluster] ||= []).push(b || { left: p.x, right: p.x, top: p.y, bottom: p.y });
@@ -221,12 +316,14 @@ network.on('beforeDrawing', ctx => {
     ctx.fillStyle = hexA(c, 0.055); ctx.fill();
     ctx.setLineDash([7, 6]); ctx.lineWidth = 1.4; ctx.strokeStyle = hexA(c, 0.42); ctx.stroke();
     ctx.setLineDash([]);
-    const label = d.toUpperCase();
-    ctx.font = '700 13px Inter, ui-sans-serif, system-ui, sans-serif';
-    const w = ctx.measureText(label).width + 26;
-    ctx.beginPath(); ctx.roundRect(l + 16, t - 13, w, 26, 13);
-    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = hexA(c, 0.55); ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.fillStyle = c; ctx.textBaseline = 'middle'; ctx.fillText(label, l + 29, t);
+    // label keeps the same on-screen size at any zoom
+    const z = 1 / Math.max(Math.min(network.getScale(), 1.4), 0.12), fs = 13 * z;
+    const label = d.toUpperCase() + `  ·  ${boxes.length}`;
+    ctx.font = `700 ${fs}px Inter, ui-sans-serif, system-ui, sans-serif`;
+    const w = ctx.measureText(label).width + 26 * z, hgt = 26 * z;
+    ctx.beginPath(); ctx.roundRect(l + 16 * z, t - hgt / 2, w, hgt, hgt / 2);
+    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = hexA(c, 0.55); ctx.lineWidth = 1.2 * z; ctx.stroke();
+    ctx.fillStyle = c; ctx.textBaseline = 'middle'; ctx.fillText(label, l + 29 * z, t);
     ctx.restore();
   });
 });
@@ -238,6 +335,15 @@ function fitView(animate) {
   network.moveTo({ scale: sc, offset: { x: panel / 2, y: 0 }, animation: animate ? { duration: 350 } : false });
 }
 network.once('afterDrawing', () => fitView(false));
+// small labels (code lists, stories) fade out when zoomed out, so entity names stay readable
+let smallHidden = null;
+function fadeLabels() {
+  const hide = network.getScale() < 0.55;
+  if (hide === smallHidden) return; smallHidden = hide;
+  nodes.update(DATA.nodes.filter(n => n.kind === 'codelist' || n.kind === 'story')
+    .map(n => ({ id: n.id, font: { ...n.font, color: hide ? 'rgba(0,0,0,0)' : n.font.color } })));
+}
+network.on('zoom', fadeLabels); network.once('afterDrawing', () => setTimeout(fadeLabels, 50));
 
 let relaxed = false, tree = false;
 $('fit').onclick = () => fitView(true);
@@ -253,18 +359,67 @@ $('png').onclick = () => { const a = document.createElement('a'); a.download = '
 $('zin').onclick = () => network.moveTo({ scale: network.getScale() * 1.25, animation: true });
 $('zout').onclick = () => network.moveTo({ scale: network.getScale() / 1.25, animation: true });
 
+// ---- search results: click (or Enter) to jump to the entity
+const INDEX = [];
+Object.entries(DATA.details).forEach(([id, d]) => {
+  if (d.type === 'entity') {
+    INDEX.push({ k: 'entity', label: d.name, sub: d.domain, target: id, sel: id });
+    (d.attributes || []).forEach(a => INDEX.push({ k: 'attribute', label: a.name, sub: d.name, target: id, sel: id, attr: a.name }));
+  } else if (d.type === 'codelist') {
+    const owner = (d.usedBy[0] || '').split('.')[0];
+    INDEX.push({ k: 'code list', label: d.name, sub: d.usedBy.length + ' attribute(s)', target: owner ? 'E:' + owner : null, sel: id });
+  } else {
+    INDEX.push({ k: 'story', label: d.name, sub: d.title, target: d.entities[0] ? 'E:' + d.entities[0] : null, sel: id });
+  }
+});
+let hits = [], hitIx = 0;
+function renderResults() {
+  const q = $('q').value.trim().toLowerCase(), box = $('results');
+  if (!q) { box.style.display = 'none'; return; }
+  const rank = x => { const l = x.label.toLowerCase(); return (l === q ? 0 : l.startsWith(q) ? 1 : 2) * 10 + (x.k === 'entity' ? 0 : x.k === 'attribute' ? 2 : 1); };
+  hits = INDEX.filter(x => x.label.toLowerCase().includes(q) || (x.k === 'entity' && x.sub.toLowerCase() === q))
+              .sort((a, b) => rank(a) - rank(b) || a.label.length - b.label.length).slice(0, 40);
+  hitIx = 0;
+  box.style.display = 'block';
+  box.innerHTML = hits.length ? hits.map((h, i) => `<div class="res ${i === 0 ? 'on' : ''}" data-i="${i}"><span class="k">${h.k}</span><b>${esc(h.label)}</b><span class="s">${esc(h.sub)}</span></div>`).join('')
+                              : '<div class="none">No match</div>';
+  box.querySelectorAll('.res').forEach(el => el.onclick = () => pick(+el.dataset.i));
+}
+function pick(i) {
+  const h = hits[i]; if (!h) return;
+  $('results').style.display = 'none';
+  if (h.k === 'code list') { $('showC').checked = true; }
+  if (h.target) applyFocus(h.target);
+  if (h.sel !== h.target && nodes.get(h.sel)) { network.selectNodes([h.target, h.sel].filter(Boolean)); show(h.sel); }
+  if (h.attr) setTimeout(() => { const el = [...document.querySelectorAll('#detail .attr .nm')].find(x => x.firstChild && x.firstChild.textContent.trim() === h.attr);
+    if (el) { el.parentElement.scrollIntoView({ block: 'center' }); el.parentElement.style.background = '#fef9c3'; } }, 120);
+}
+$('q').addEventListener('input', renderResults);
+$('q').addEventListener('focus', renderResults);
+$('q').addEventListener('keydown', e => {
+  const els = $('results').querySelectorAll('.res');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); hitIx = Math.max(0, Math.min(els.length - 1, hitIx + (e.key === 'ArrowDown' ? 1 : -1)));
+    els.forEach((el, i) => el.classList.toggle('on', i === hitIx)); els[hitIx]?.scrollIntoView({ block: 'nearest' }); }
+  if (e.key === 'Enter') pick(hitIx);
+  if (e.key === 'Escape') { $('results').style.display = 'none'; }
+});
+document.addEventListener('click', e => { if (!$('ctl').contains(e.target)) $('results').style.display = 'none'; });
+
 // ---- detail drawer
 const jump = id => `onclick="focusNode('${id.replace(/'/g, "\\'")}')"`;
 window.focusNode = id => { if (nodes.get(id)) { network.selectNodes([id]); network.focus(id, { scale: Math.max(network.getScale(), 0.9), animation: true }); } show(id); };
 const domBadge = d => { const c = COLORS[d] || '#64748b'; return `<span class="badge dom" style="--bg:${hexA(c, .1)};--fg:${c};--bd:${hexA(c, .3)}"><span style="width:7px;height:7px;border-radius:50%;background:${c}"></span>${esc(d)}</span>`; };
-const SRC = { declared: 'declared in file', file: 'from file/folder', inherited: 'inherited from parent', inferred: 'inferred from referencing entities', shared: 'used by several domains' };
+const SRC = { cluster: 'grouped with the entities it is connected to (no domain in the files)', tag: 'from the OpenAPI tag of the operations that use it', mapped: 'taken from the ACORD entity it maps to', declared: 'declared in file', file: 'from file/folder', inherited: 'inherited from parent', inferred: 'inferred from referencing entities', shared: 'used by several domains' };
 
 function show(id) {
   const d = DATA.details[id], box = $('detail');
   $('drawer').classList.add('open');
   if (!d) { box.innerHTML = `<div class="ttl">${esc(id.slice(2))}</div><p class="f-error">Referenced but not defined in the uploaded files.</p>`; return; }
   if (d.type === 'entity') {
-    const attrs = d.attributes.map(a => `<div class="attr ${a.inherited ? 'inh' : ''} ${a.dep ? 'dep' : ''}">
+    const rank = a => a.origin === 'custom' ? 0 : a.origin === 'changed' ? 1 : 2;
+    const nCus = d.attributes.filter(a => a.origin === 'custom').length, nChg = d.attributes.filter(a => a.origin === 'changed').length;
+    const ordered = d.origin === 'extended' ? [...d.attributes].sort((x, y) => rank(x) - rank(y)) : d.attributes;
+    const attrs = ordered.map(a => `<div class="attr ${a.inherited ? 'inh' : ''} ${a.dep ? 'dep' : ''}">
         <div class="nm">${esc(a.name)} ${a.req ? '<span class="pill req">required</span>' : ''}${a.dep ? '<span class="pill dep">deprecated</span>' : ''}${a.origin === 'custom' ? '<span class="pill cus">custom</span>' : ''}${a.origin === 'changed' ? '<span class="pill chg">changed</span>' : ''}${a.inherited ? '<span class="pill">inherited</span>' : ''}</div>
         <div class="ty">${esc(a.type)} · ${a.card}</div>
         ${a.desc ? `<div class="ds">${esc(a.desc)}</div>` : ''}
@@ -275,12 +430,13 @@ function show(id) {
     box.innerHTML = `<div class="ttl">${esc(d.name)}</div>
       <div>${domBadge(d.domain)}${originBadge}${d.dep ? '<span class="pill dep">deprecated</span>' : ''}</div>
       <div class="meta" style="margin-top:4px">Home domain ${SRC[d.domainSource] || 'not declared'} · ${esc(d.source)}</div>
+      <div style="margin-top:8px"><button class="icon" style="width:auto;padding:0 12px;height:30px;font:inherit;font-size:12px" onclick="applyFocus('${id.replace(/'/g, "\\'")}')">Focus on ${esc(d.name)}</button></div>
       ${d.usedIn.length > 1 ? `<h3>Used in domains</h3><div>${d.usedIn.map(domBadge).join('')}</div>` : ''}
       ${d.notes.map(n => `<div class="note">${esc(n)}</div>`).join('')}
       ${d.description ? `<p>${esc(d.description)}</p>` : ''}
       ${d.parents.length ? `<h3>Extends</h3>${d.parents.map(p => `<span class="pill ref" ${jump('E:' + p)}>${esc(p)}</span>`).join('')}` : ''}
       ${d.incoming.length ? `<h3>Referenced by</h3>${d.incoming.map(r => `<span class="pill ref" ${jump('E:' + r.split('.')[0])}>${esc(r)}</span>`).join('')}` : ''}
-      <h3>Attributes · ${d.attributes.length}</h3><div class="attrs">${attrs}</div>`;
+      <h3>Attributes · ${d.attributes.length}${d.origin === 'extended' ? ` <span style="text-transform:none;letter-spacing:0;font-weight:500"><span class="pill cus">${nCus} custom</span><span class="pill chg">${nChg} changed</span></span>` : ''}</h3><div class="attrs">${attrs}</div>`;
   } else if (d.type === 'codelist') {
     box.innerHTML = `<div class="ttl">◇ ${esc(d.name)}</div>
       <div>${d.dep ? '<span class="pill dep">deprecated</span>' : ''}<span class="meta">${esc(d.source)}</span></div>
@@ -300,6 +456,7 @@ function show(id) {
   }
 }
 $('close').onclick = () => { $('drawer').classList.remove('open'); network.unselectAll(); };
+network.on('doubleClick', p => { if (p.nodes.length && p.nodes[0].startsWith('E:')) applyFocus(p.nodes[0]); });
 network.on('click', p => { if (p.nodes.length) show(p.nodes[0]); else $('drawer').classList.remove('open'); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') $('close').onclick(); });
 sync();

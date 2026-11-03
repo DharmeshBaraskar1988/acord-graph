@@ -142,7 +142,9 @@ def resolve_domains(model: AcordModel) -> list[str]:
     rels = model.relationships()
 
     def known(e) -> bool:
-        return e.domain_source in ("declared", "file", "inherited", "inferred") and e.domain != "Unassigned"
+        return e.domain_source in ("declared", "file", "tag", "inherited", "inferred", "cluster", "mapped",
+                                   "stories", "propagated") \
+            and e.domain != "Unassigned"
 
     # inherit from parents (repeat until stable, parents may resolve late)
     for _ in range(5):
@@ -186,6 +188,60 @@ def resolve_domains(model: AcordModel) -> list[str]:
         users = [en.domain for en in model.entities.values() for a in en.attributes.values() if a.codelist == c.name]
         if users:
             c.domain = max(set(users), key=users.count)
+    return notes
+
+
+def _name_words(name: str) -> list[str]:
+    return [w for w in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])", name)]
+
+
+def cluster_domains(model: AcordModel, min_share: float = 0.4, min_count: int = 12, force: bool = False) -> list[str]:
+    """When most entities have no domain, group them by how they are connected (Louvain communities)
+    and name each group after its most common leading word (Claim, Policy, Party ...)."""
+    import networkx as nx
+    ents = model.entities
+    loose = [n for n, e in ents.items() if e.domain in ("Unassigned", "Shared") and e.domain_source in ("", "shared")]
+    if len(loose) < (6 if force else min_count) or (not force and len(loose) / max(len(ents), 1) < min_share):
+        return []
+    g = nx.Graph()
+    g.add_nodes_from(loose)
+    for r in model.relationships():
+        if r.rel_type != "inheritance" and r.source in g and r.target in g and r.source != r.target:
+            g.add_edge(r.source, r.target)
+    # very generic hubs (referenced from everywhere) would glue all groups together
+    deg = dict(g.degree())
+    cutoff = max(12, sorted(deg.values())[int(len(deg) * 0.97)] if deg else 12)
+    core = g.copy()
+    core.remove_nodes_from([n for n, d in deg.items() if d > cutoff])
+    comms = [set(c) for c in nx.community.louvain_communities(core, seed=7, resolution=1.0)]
+    # attach tiny groups / hubs to the group they connect to most
+    big = [c for c in comms if len(c) >= 3]
+    rest = set(loose) - set().union(*big) if big else set(loose)
+    for n in rest:
+        best = max(big, key=lambda c: sum(1 for m in g.neighbors(n) if m in c), default=None)
+        if best is not None and any(m in best for m in g.neighbors(n)):
+            best.add(n)
+    groups = big
+    leftovers = set(loose) - set().union(*groups) if groups else set(loose)
+    if leftovers:
+        groups.append(leftovers)
+    used, notes = set(), []
+    for c in sorted(groups, key=len, reverse=True):
+        words = [(_name_words(n) or [n])[0] for n in c]
+        indeg = {n: sum(1 for r in model.relationships() if r.target == n and r.source in c) for n in c}
+        # most shared leading word; ties go to the word whose entity is referenced most
+        top = max(set(words), key=lambda w: (words.count(w), indeg.get(w, 0), -len(w)))
+        hub = max(c, key=lambda n: (indeg[n], -len(n)))
+        name = top if words.count(top) >= 2 else hub
+        if c is leftovers and len(groups) > 1:
+            name = "Other"
+        base, i = name, 2
+        while name in used:
+            name, i = f"{base} {i}", i + 1
+        used.add(name)
+        for n in c:
+            ents[n].domain, ents[n].domain_source = name, "cluster"
+        notes.append(f"{name}: {len(c)} entities grouped by their relationships (no domain in the files)")
     return notes
 
 
@@ -308,25 +364,119 @@ def walk(model: AcordModel, ent: Entity, data: dict, path: str, story: UserStory
             story.findings.append(SampleFinding(f"{path}.{a.name}", "warning", f"required attribute missing in sample", ent.name, a.name))
 
 
-def map_stories(model: AcordModel) -> None:
+def _dom_key(name: str) -> str:
+    n = norm(name)
+    return n[:-1] if n.endswith("s") and len(n) > 3 else n
+
+
+def walk_stories(model: AcordModel) -> None:
+    """Walk every sample payload through the model: which entities / attributes each story uses."""
     for story in model.stories.values():
-        story.used_entities.clear(); story.used_attributes.clear(); story.findings.clear()
+        story.used_entities.clear(); story.used_attributes.clear(); story.findings.clear(); story.roots.clear()
         for e in story.declared_entities:
             if e not in model.entities:
                 story.findings.append(SampleFinding("(declared)", "error", f"story lists entity '{e}' which is not defined", e))
-        roots = []
         for i, sample in enumerate(story.samples):
             root, body = guess_root(model, sample, story)
             if not root:
                 story.findings.append(SampleFinding(f"sample[{i}]", "error", "could not match this sample to any entity"))
                 continue
-            roots.append(root)
+            story.roots.append(root)
             walk(model, model.entities[root], body, f"sample[{i}]:{root}", story)
+
+
+def _story_domain_names(model: AcordModel) -> dict[str, str]:
+    """One spelling per story domain (Claims / claims / Claim -> the model's or the most common one)."""
+    model_doms = {_dom_key(d): d for d in model.domains() if d not in ("Unassigned", "Shared")}
+    seen: dict[str, list[str]] = {}
+    for s in model.stories.values():
+        if s.domain and s.domain_source in ("declared", "folder"):
+            seen.setdefault(_dom_key(s.domain), []).append(s.domain)
+    return {k: model_doms.get(k) or max(set(v), key=v.count) for k, v in seen.items()}
+
+
+def story_vote_domains(model: AcordModel) -> list[str]:
+    """Entities without a domain of their own get the domain of the user stories that use them.
+    Each story votes for its domain: 3 for the entity its sample is about (the root), 1 for every other
+    entity the sample touches. The story domain comes from the story itself or its folder."""
+    names = _story_domain_names(model)
+    for e in model.entities.values():
+        e.story_votes = {}
+    for s in model.stories.values():
+        if not (s.domain and s.domain_source in ("declared", "folder")):
+            continue
+        dom = names.get(_dom_key(s.domain), s.domain)
+        s.domain = dom
+        for e in s.used_entities | set(s.declared_entities):
+            if e in model.entities:
+                w = 3.0 if e in s.roots or e in s.declared_entities else 1.0
+                v = model.entities[e].story_votes
+                v[dom] = v.get(dom, 0) + w
+    notes = []
+    for e in model.entities.values():
+        if not e.story_votes or (e.domain_source in ("declared", "file", "tag", "inherited") and e.domain != "Unassigned"):
+            continue
+        top = max(e.story_votes, key=lambda d: (e.story_votes[d], d))
+        e.domain, e.domain_source = top, "stories"
+        others = [d for d in e.story_votes if d != top]
+        notes.append(f"{e.name} → {top} (used by {top} stories" + (f"; also by {', '.join(sorted(others))}" if others else "") + ")")
+    return notes
+
+
+def propagate_domains(model: AcordModel, rounds: int = 6) -> int:
+    """Entities still without a domain take the majority domain of the entities they are connected to
+    (only if those neighbours got their domain from a reliable source)."""
+    reliable = ("declared", "tag", "inherited", "stories", "file", "propagated")
+    nbrs: dict[str, list[str]] = {n: [] for n in model.entities}
+    for r in model.relationships():
+        if r.rel_type != "inheritance" and r.source in nbrs and r.target in nbrs:
+            nbrs[r.source].append(r.target); nbrs[r.target].append(r.source)
+    total = 0
+    for _ in range(rounds):
+        changes = {}
+        for n, e in model.entities.items():
+            if e.domain not in ("Unassigned", "Shared") or e.domain_source in reliable:
+                continue
+            doms = [model.entities[m].domain for m in nbrs[n]
+                    if model.entities[m].domain_source in reliable and model.entities[m].domain not in ("Unassigned", "Shared")]
+            if doms:
+                top = max(set(doms), key=lambda d: (doms.count(d), d))
+                # join only when at least half of ALL its connections are in that domain
+                if doms.count(top) * 2 >= len(set(nbrs[n])):
+                    changes[n] = top
+        if not changes:
+            break
+        for n, d in changes.items():
+            model.entities[n].domain, model.entities[n].domain_source = d, "propagated"
+        total += len(changes)
+    return total
+
+
+def finalize_story_domains(model: AcordModel) -> None:
+    known = {_dom_key(d): d for d in model.domains()}
+    for story in model.stories.values():
+        pool = story.roots or story.declared_entities[:1] or list(story.used_entities)
+        doms = [model.entities[e].domain for e in pool if e in model.entities]
+        ent_dom = max(doms, key=doms.count) if doms else ""
+        if story.domain_source in ("folder", "declared") and story.domain:
+            hit = known.get(_dom_key(story.domain))
+            if hit:
+                story.domain = hit
+            elif story.domain_source == "folder" and ent_dom and ent_dom not in ("Unassigned",):
+                story.domain, story.domain_source = ent_dom, "entities"
         if not story.domain:
-            # the domain of the sample's root entity wins; otherwise the declared/used majority
-            pool = roots or story.declared_entities[:1] or list(story.used_entities)
-            doms = [model.entities[e].domain for e in pool if e in model.entities]
-            story.domain = max(doms, key=doms.count) if doms else "Unassigned"
+            story.domain = ent_dom or "Unassigned"
+            story.domain_source = "entities" if ent_dom else ""
+    # stories also count as 'used in' for every entity they touch
+    for story in model.stories.values():
+        for e in story.used_entities:
+            if e in model.entities and story.domain not in ("Unassigned", ""):
+                model.entities[e].used_in_domains.add(story.domain)
+
+
+def map_stories(model: AcordModel) -> None:
+    walk_stories(model)
+    finalize_story_domains(model)
 
 
 def analyze(model: AcordModel, include_deprecated: bool = False) -> dict[str, list[str]]:
@@ -334,11 +484,25 @@ def analyze(model: AcordModel, include_deprecated: bool = False) -> dict[str, li
     deprecated = apply_deprecations(model, include_deprecated)
     custom_notes = link_custom_entities(model)
     domain_notes = resolve_domains(model)
+    walk_stories(model)                                   # what each user story uses
+    story_notes = story_vote_domains(model)               # domains from the user stories
+    n_prop = propagate_domains(model) if story_notes else 0
+    cluster_notes = cluster_domains(model, force=bool(story_notes))   # whatever is still without a domain
+    resolve_domains(model)                                # refresh 'used in'
+    domain_notes = [n for n in domain_notes if "nothing points to it" not in n or
+                    model.entities.get(n.split(":")[0], None) is None or
+                    model.entities[n.split(":")[0]].domain == "Unassigned"]
+    if story_notes:
+        domain_notes = ([f"Domains taken from user stories for {len(story_notes)} entities"
+                         + (f" and from their connections for {n_prop} more" if n_prop else "") + ":"]
+                        + story_notes + domain_notes)
+    if cluster_notes:
+        domain_notes += ["Entities with no domain in the files or the stories were grouped by how they connect:"] + cluster_notes
     for e in model.entities.values():
         for a in e.attributes.values():
             if a.extra.get("deprecated_codelist"):
                 notes.append(f"{e.name}.{a.name}: code list '{a.extra['deprecated_codelist']}' is deprecated (link removed)")
-    map_stories(model)
+    finalize_story_domains(model)
     return {"deprecated": deprecated, "custom": custom_notes + custom_changes(model),
             "domains": domain_notes, "codelist_notes": notes, "dangling": dangling_refs(model)}
 

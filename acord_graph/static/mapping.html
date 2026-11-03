@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{TITLE}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{VIS_JS}}
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --cust:#f97316; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body { font:13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:#f8fafc;
+         display:grid; grid-template-rows:auto auto minmax(0,1fr); height:100vh; overflow:hidden; }
+  nav { display:flex; align-items:center; gap:4px; padding:10px 16px 0; background:#fff; border-bottom:1px solid var(--line); }
+  nav button { font:inherit; font-weight:550; border:none; background:none; padding:8px 14px 10px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; }
+  nav button.on { color:var(--ink); border-bottom-color:var(--ink); }
+  nav .chips { margin-left:auto; display:flex; gap:6px; padding-bottom:8px; }
+  .chip { font-size:11.5px; padding:3px 10px; border-radius:99px; background:#f1f5f9; color:#334155; }
+  .chip.c { background:#ffedd5; color:#9a3412; }
+  #bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+  #bar select { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:#fff; min-width:230px; }
+  #bar button { font:inherit; padding:6px 12px; border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer; }
+  #bar button:hover { border-color:#93c5fd; color:var(--accent); }
+  #bar label { display:inline-flex; gap:6px; align-items:center; color:#334155; cursor:pointer; }
+  .leg { display:flex; flex-wrap:wrap; gap:6px 14px; color:#475569; font-size:12px; width:100%; }
+  .leg span { display:inline-flex; align-items:center; gap:6px; }
+  .ln { width:24px; border-top:2px solid; display:inline-block; }
+  .sq { width:14px; height:11px; border-radius:3px; display:inline-block; border:2px solid; }
+  main { grid-row:3; display:grid; grid-template-columns:minmax(0,1fr) 500px; min-height:0; }
+  #net { position:relative; min-height:0; background:#fff radial-gradient(#e2e8f0 1px, transparent 1px) 0 0/22px 22px; }
+  aside { border-left:1px solid var(--line); background:#fff; overflow:auto; padding:16px 18px; }
+  h2 { font-size:15px; margin:0 0 6px; } h3 { font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin:16px 0 8px; }
+  p.muted { color:var(--muted); margin:4px 0 10px; font-size:12.5px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--muted); font-weight:550; font-size:11.5px; padding:6px 6px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; }
+  td { padding:7px 6px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+  tr.row { cursor:pointer; } tr.row:hover td { background:#f8fafc; } tr.row.sel td { background:#fff7ed; }
+  .st { font-size:11px; font-weight:650; letter-spacing:.02em; }
+  .num { font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  .note { font-size:12.5px; color:#334155; margin:8px 0; padding:8px 10px; border-radius:9px; background:#f8fafc; border:1px solid var(--line); }
+  .note b { color:var(--ink); }
+  .pill { display:inline-block; padding:0 7px; border-radius:99px; font-size:10.5px; line-height:18px; background:#f1f5f9; color:#334155; margin:1px 2px; }
+  .pill.al { background:#ffedd5; color:#9a3412; } .pill.rel { background:#ede9fe; color:#5b21b6; } .pill.un { background:#fee2e2; color:#991b1b; }
+  tr.unm td { background:#fff5f5; } tr.unm td.c { color:#991b1b; }
+  /* attribute matches tab */
+  #attrView { display:none; grid-column:1/-1; min-height:0; grid-template-columns:minmax(0,1fr) 400px; grid-template-rows:auto minmax(0,1fr); background:#fff; }
+  #attrView .filters { grid-column:1/-1; display:flex; gap:10px 14px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  #attrView select, #attrView input[type=search] { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  #attrView label { display:inline-flex; gap:6px; align-items:center; color:#334155; cursor:pointer; }
+  .seg2 { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg2 button { font:inherit; border:none; background:#fff; padding:6px 12px; cursor:pointer; color:#475569; }
+  .seg2 button.on { background:#0f172a; color:#fff; }
+  .okchip { font-size:12px; padding:4px 10px; border-radius:8px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+  #map { overflow:auto; min-height:0; position:relative; padding:18px 22px 40px; }
+  #mapInner { position:relative; display:grid; grid-template-columns:minmax(220px,34%) minmax(120px,1fr) minmax(260px,40%); }
+  #mapInner svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  .colh { font-size:17px; font-weight:650; color:#475569; margin:0 0 12px; }
+  .colh small { font-weight:500; color:var(--muted); font-size:12px; }
+  .ca, .aa { border:1.5px solid #cbd5e1; border-radius:10px; padding:8px 12px; margin-bottom:9px; cursor:pointer; background:#fff; position:relative; transition:box-shadow .12s; }
+  .ca { border-color:#fdba74; background:#fff7ed; }
+  .ca .n, .aa .n { font-weight:600; } .ca .t, .aa .t { font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ca.un { border:1.5px dashed #f87171; background:#fef2f2; } .ca.un .t { color:#b91c1c; }
+  .ca.sel, .aa.sel { box-shadow:0 0 0 3px #bfdbfe; }
+  .ca:hover, .aa:hover { box-shadow:0 0 0 3px #e2e8f0; }
+  .grp-h { font-size:12.5px; font-weight:650; margin:14px 0 6px; display:flex; align-items:center; gap:8px; }
+  .grp-h:first-of-type { margin-top:0; }
+  .aa { border-color:#86efac; background:#f0fdf4; }
+  .aa.rev { border-color:#fcd34d; background:#fffbeb; }
+  .aa.idle { border-color:#e2e8f0; background:#f8fafc; color:#94a3b8; } .aa.idle .n { font-weight:500; }
+  .aa.near { border:1.5px dotted #f87171; background:#fff; }
+  #aSide { border-left:1px solid var(--line); overflow:auto; padding:16px 18px; min-height:0; }
+  .def { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0; }
+  .def .k { font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .def code { font-size:11.5px; background:#f1f5f9; padding:1px 5px; border-radius:4px; }
+  .lg { display:flex; flex-direction:column; gap:5px; font-size:12px; color:#475569; margin:6px 0 12px; }
+  .lg span { display:flex; align-items:center; gap:8px; }
+  .grp td { background:#fff7ed !important; font-weight:650; color:#9a3412; border-top:2px solid #fed7aa; }
+</style>
+</head>
+<body>
+<nav>
+  <button id="t1" class="on">Entity graph</button><button id="t2">Attribute matches</button>
+  <div class="chips" id="chips"></div>
+</nav>
+<div id="bar">
+  <select id="focus"><option value="">Focus a company entity…</option></select>
+  <button id="reset">Reset view</button>
+  <label><input type="checkbox" id="alt" checked> alternative candidates</label>
+  <label><input type="checkbox" id="rel" checked> ACORD related</label>
+  <label><input type="checkbox" id="uc"> use cases</label>
+  <label><input type="checkbox" id="lab" checked> labels</label>
+  <div class="leg">
+    <span><span class="sq" style="background:#ffedd5;border-color:#16a34a"></span>company entity (border = status)</span>
+    <span><span class="ln" style="border-color:#475569"></span>company association</span>
+    <span><span class="ln" style="border-color:#f97316;border-top-style:dashed"></span>entity alignment (similarity %)</span>
+    <span><span class="ln" style="border-color:#7c3aed;border-top-width:3px"></span>attributes matched into this ACORD entity</span>
+    <span><span class="ln" style="border-color:#94a3b8;border-top-style:dotted"></span>alternative candidate</span>
+    <span><span class="ln" style="border-color:#16a34a"></span>ACORD relation</span>
+    <span style="color:#16a34a">■ matched</span><span style="color:#d97706">■ partial</span><span style="color:#dc2626">■ unmatched</span>
+  </div>
+</div>
+<main>
+  <div id="net"></div>
+  <aside id="side"></aside>
+  <div id="attrView">
+    <div class="filters">
+      <span style="color:#475569">Company entity</span> <select id="aEnt"></select>
+      <span class="seg2"><button id="mVis" class="on">Visual</button><button id="mTbl">Table</button></span>
+      <label><input type="checkbox" id="aAll"> all ACORD attributes of these entities</label>
+      <label><input type="checkbox" id="aNear" checked> closest suggestion for unmatched</label>
+      <input type="search" id="aQ" placeholder="Search attribute…">
+      <span class="okchip" id="aCount"></span>
+    </div>
+    <div id="map"><div id="mapInner"></div><table id="aTbl" style="display:none"></table></div>
+    <aside id="aSide"></aside>
+  </div>
+</main>
+<script>
+const D = {{DATA}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+$('chips').innerHTML = `<span class="chip c">${D.counts.company} company entities</span><span class="chip">${D.counts.acord} ACORD entities</span><span class="chip">${D.counts.usecases} use cases</span>`;
+
+const nodes = new vis.DataSet(D.nodes);
+const edges = new vis.DataSet(D.edges);
+const net = new vis.Network($('net'), { nodes, edges }, {
+  layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 290, nodeSpacing: 46, treeSpacing: 80,
+                            blockShifting: true, edgeMinimization: true, parentCentralization: true } },
+  physics: false,
+  interaction: { hover: true, multiselect: false, tooltipDelay: 120 },
+  edges: { smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.45 }, hoverWidth: 0.5, selectionWidth: 1 },
+});
+
+// column headings
+net.on('beforeDrawing', ctx => {
+  const pos = net.getPositions(), cols = {};
+  nodes.get({ filter: n => !n.hidden }).forEach(n => { const p = pos[n.id]; if (p) (cols[n.level] ||= []).push(p); });
+  const allY = Object.values(cols).flat().map(p => p.y);
+  if (!allY.length) return;
+  const top = Math.min(...allY) - 70;
+  ctx.save(); ctx.font = '600 13px Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center';
+  D.columns.forEach(([lvl, name]) => { const c = cols[lvl]; if (!c) return; const x = c.reduce((s, p) => s + p.x, 0) / c.length; ctx.fillText(name.toUpperCase(), x, top); });
+  ctx.restore();
+});
+
+// visibility + focus
+let focusId = null;
+function refresh() {
+  const showAlt = $('alt').checked, showRel = $('rel').checked, showUc = $('uc').checked, lab = $('lab').checked;
+  let keep = null;
+  if (focusId) {
+    keep = new Set([focusId]);
+    // the focused company entity, its company children, every ACORD entity it maps into, and their relations
+    const s = D.summary.find(x => 'K:' + x.company === focusId);
+    D.edges.forEach(e => { if (e.from === focusId) keep.add(e.to); if (e.to === focusId && e.kind === 'company') keep.add(e.from); });
+    const acord = [...keep].filter(id => id.startsWith('A:'));
+    D.edges.forEach(e => { if (e.kind === 'acord' && (acord.includes(e.from) || acord.includes(e.to))) { keep.add(e.from); keep.add(e.to); }
+                           if (e.kind === 'usecase' && acord.includes(e.to)) keep.add(e.from); });
+  }
+  const vis_ = n => {
+    if (keep && !keep.has(n.id)) return false;
+    if (n.kind === 'usecase') return showUc;
+    if (n.kind === 'acord' && n.role === 'related') return showRel;
+    if (n.kind === 'acord' && n.role === 'alternative') return showAlt;
+    return true;
+  };
+  const shown = new Set(D.nodes.filter(vis_).map(n => n.id));
+  nodes.update(D.nodes.map(n => ({ id: n.id, hidden: !shown.has(n.id) })));
+  edges.update(D.edges.map(e => ({ id: e.id, label: lab ? e._label : '',
+    hidden: !(shown.has(e.from) && shown.has(e.to)) || (e.kind === 'alt' && !showAlt) })));
+  setTimeout(() => net.fit({ animation: { duration: 300 } }), 30);
+}
+['alt', 'rel', 'uc', 'lab'].forEach(id => $(id).addEventListener('input', refresh));
+
+// focus dropdown
+D.summary.forEach(s => { const o = document.createElement('option'); o.value = 'K:' + s.company; o.textContent = `${s.company}  →  ${s.aligned || 'unmatched'}`; $('focus').appendChild(o); });
+$('focus').onchange = () => focus($('focus').value || null);
+$('reset').onclick = () => focus(null);
+function focus(id) { focusId = id; $('focus').value = id || ''; refresh(); renderSide(); }
+net.on('click', p => { const id = p.nodes[0]; if (id && id.startsWith('K:')) { focusId = focusId === id ? null : focusId; renderSide(id); } });
+net.on('doubleClick', p => { const id = p.nodes[0]; if (id && id.startsWith('K:')) { $('aEnt').value = id.slice(2); aSel = null; tab(2); } });
+
+// right panel: summary table + selected entity
+function explain(s) {
+  if (!s.aligned) return `<b>${esc(s.company)}</b> has no ACORD counterpart: none of its ${s.total} attributes matched and the name does not resemble an ACORD entity. Nothing is force-fitted.`;
+  const t = Object.entries(s.targets).map(([k, v]) => `${v} into <b>${esc(k)}</b>`).join(', ');
+  const un = s.total - s.matched;
+  const base = `<b>${esc(s.company)}</b> aligns to <b>${esc(s.aligned)}</b> — ${s.status} (${s.similarity}%). ${s.matched}/${s.total} attributes matched`;
+  return base + (t ? ` (${t}, through how ${esc(s.aligned)} is connected in ACORD)` : '') + '.' + (un ? ` ${un} stay unmatched rather than forced.` : '');
+}
+function renderSide(selId) {
+  const sel = selId || focusId;
+  const rows = D.summary.map(s => `<tr class="row ${'K:' + s.company === sel ? 'sel' : ''}" data-id="K:${esc(s.company)}">
+      <td>${esc(s.company)}</td><td>${esc(s.aligned || '—')}</td>
+      <td class="st" style="color:${D.statusColor[s.status]}">${s.status}</td>
+      <td class="num">${s.similarity}%</td><td class="num">${s.matched}/${s.total}</td></tr>`).join('');
+  let detail = '';
+  const s = sel && D.summary.find(x => 'K:' + x.company === sel);
+  if (s) {
+    detail = `<h3>${esc(s.company)}</h3><div class="note">${explain(s)}</div>
+      ${s.alternatives.length ? `<div class="muted" style="font-size:12px">Alternatives: ${s.alternatives.map(a => `${esc(a[0])} (${Math.round(a[1] * 100)}%)`).join(', ')}</div>` : ''}
+      <table><tr><th>Company attribute</th><th>ACORD</th><th class="num">Score</th></tr>
+      ${s.attrs.map(a => `<tr class="${a.a ? '' : 'unm'}"><td class="c">${esc(a.c)} <span class="muted" style="font-size:11px">${esc(a.ct)}</span></td>
+        <td>${a.a ? `${esc(a.e)}.<b>${esc(a.a)}</b> <span class="pill ${a.via === 'aligned' ? 'al' : 'rel'}">${a.via}</span>` : '<span class="pill un">unmatched</span>'}</td>
+        <td class="num">${a.a ? a.s + '%' : ''}</td></tr>`).join('')}</table>
+      <p><button onclick="$('aEnt').value='${esc(s.company)}'; aSel=null; tab(2)" style="font:inherit;padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer">Open attribute view →</button>
+      <span class="muted">(or double-click the node)</span></p>`;
+  }
+  $('side').innerHTML = `<h2>Company model ↔ ACORD</h2>
+    <p class="muted">Click a row to focus that entity. Orange = company / custom component; border colour = match status.</p>
+    <table><tr><th>Company model</th><th>ACORD entity</th><th>Status</th><th class="num">Similarity</th><th class="num">Attr</th></tr>${rows}</table>${detail}`;
+  $('side').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => focus(focusId === tr.dataset.id ? null : tr.dataset.id));
+}
+
+// attribute matches tab ------------------------------------------------------
+let aMode = 'vis', aSel = null;
+D.summary.filter(x => x.total).forEach(x => { const o = document.createElement('option'); o.value = x.company;
+  o.textContent = `${x.company} (${x.matched}/${x.total}) → ${x.aligned || 'unmatched'}`; $('aEnt').appendChild(o); });
+const strength = a => a.how === 'fuzzy' ? 'rev' : 'ok';
+const LINE = { ok: '#16a34a', rev: '#d97706', near: '#f87171' };
+
+function renderAttrs() {
+  const s = D.summary.find(x => x.company === $('aEnt').value) || D.summary.find(x => x.total);
+  if (!s) { $('mapInner').innerHTML = '<p class="muted">No company attributes loaded.</p>'; return; }
+  $('aEnt').value = s.company;
+  const q = $('aQ').value.trim().toLowerCase();
+  const attrs = s.attrs.filter(a => !q || (a.c + ' ' + a.a + ' ' + a.e + ' ' + a.p).toLowerCase().includes(q));
+  $('aCount').textContent = `${s.matched} of ${s.total} attributes matched`;
+  $('mapInner').style.display = aMode === 'vis' ? '' : 'none';
+  $('aTbl').style.display = aMode === 'tbl' ? '' : 'none';
+  if (aMode === 'tbl') return renderTable(s, attrs);
+
+  // right column: ACORD entities in order of first use, aligned entity first
+  const showNear = $('aNear').checked, showAll = $('aAll').checked;
+  const order = [];
+  if (s.aligned) order.push(s.aligned);
+  attrs.forEach(a => { const e = a.a ? a.e : (showNear && a.na ? a.ne : null); if (e && !order.includes(e)) order.push(e); });
+  const targets = {};   // entity -> attr -> [{a, kind}]
+  attrs.forEach(a => {
+    if (a.a) ((targets[a.e] ||= {})[a.a] ||= []).push({ a, kind: strength(a) });
+    else if (showNear && a.na) ((targets[a.ne] ||= {})[a.na] ||= []).push({ a, kind: 'near' });
+  });
+  const left = attrs.map((a, i) => `<div class="ca ${a.a ? '' : 'un'} ${aSel === a.c ? 'sel' : ''}" data-c="${esc(a.c)}" id="L${i}">
+      <div class="n">${esc(a.c)}</div><div class="t">${esc(a.ct)}${a.a ? '' : ' — no ACORD match'}</div></div>`).join('');
+  let right = '';
+  order.forEach(e => {
+    const used = targets[e] || {};
+    const all = D.acordAttrs[e] || [];
+    const names = showAll ? all.map(x => x.n) : Object.keys(used).sort((x, y) => attrs.findIndex(a => (a.a || a.na) === x) - attrs.findIndex(a => (a.a || a.na) === y));
+    if (!names.length) return;
+    const role = e === s.aligned ? 'aligned' : 'related';
+    right += `<div class="grp-h">ACORD entity: ${esc(e)} <span class="pill ${role === 'aligned' ? 'al' : 'rel'}">${role}</span></div>`;
+    names.forEach(n => {
+      const meta = all.find(x => x.n === n) || {};
+      const links = used[n] || [];
+      const kind = !links.length ? 'idle' : links.some(l => l.kind === 'ok') ? '' : links.some(l => l.kind === 'rev') ? 'rev' : 'near';
+      const path = (links.find(l => l.a.p) || {}).a?.p || `${e}.${n}`;
+      right += `<div class="aa ${kind} ${links.some(l => l.a.c === aSel) ? 'sel' : ''}" data-e="${esc(e)}" data-a="${esc(n)}">
+        <div class="n">${esc(n)} <span style="font-weight:400;color:#64748b">(${esc(meta.t || '')})</span></div><div class="t">${esc(path)}</div></div>`;
+    });
+  });
+  $('mapInner').innerHTML = `<div><div class="colh">${esc(s.company)} <small>company</small></div>${left}</div><div></div>
+    <div><div class="colh">ACORD attribute <small>${s.aligned ? 'aligned: ' + esc(s.aligned) : ''}</small></div>${right || '<p class="muted">No ACORD attributes matched.</p>'}</div><svg id="lines"></svg>`;
+  $('mapInner').querySelectorAll('.ca').forEach(el => el.onclick = () => { aSel = el.dataset.c; renderAttrs(); });
+  $('mapInner').querySelectorAll('.aa').forEach(el => el.onclick = () => {
+    const hit = attrs.find(a => (a.a === el.dataset.a && a.e === el.dataset.e) || (a.na === el.dataset.a && a.ne === el.dataset.e));
+    if (hit) { aSel = hit.c; renderAttrs(); } else attrSide(s, null, { e: el.dataset.e, n: el.dataset.a });
+  });
+  requestAnimationFrame(() => drawLines(attrs, targets));
+  attrSide(s, attrs.find(a => a.c === aSel));
+}
+
+function drawLines(attrs, targets) {
+  const box = $('mapInner'), svg = $('lines'), base = box.getBoundingClientRect();
+  let html = '<defs>' + Object.entries(LINE).map(([k, c]) => `<marker id="ar-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="${c}"/></marker>`).join('') + '</defs>';
+  attrs.forEach(a => {
+    const e = a.a ? a.e : a.ne, n = a.a ? a.a : a.na;
+    if (!n || (!a.a && !$('aNear').checked)) return;
+    const L = box.querySelector(`.ca[data-c="${CSS.escape(a.c)}"]`), R = box.querySelector(`.aa[data-e="${CSS.escape(e)}"][data-a="${CSS.escape(n)}"]`);
+    if (!L || !R) return;
+    const l = L.getBoundingClientRect(), r = R.getBoundingClientRect();
+    const x1 = l.right - base.left, y1 = l.top + l.height / 2 - base.top, x2 = r.left - base.left - 2, y2 = r.top + r.height / 2 - base.top;
+    const kind = a.a ? strength(a) : 'near', c = LINE[kind], mx = (x1 + x2) / 2;
+    const sel = aSel === a.c, dim = aSel && !sel;
+    const dash = kind === 'ok' ? '' : kind === 'rev' ? 'stroke-dasharray="7 5"' : 'stroke-dasharray="2 5"';
+    html += `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${c}" stroke-width="${sel ? 3 : kind === 'near' ? 1.3 : 2}" ${dash} opacity="${dim ? .18 : 1}" marker-end="url(#ar-${kind})"/>`;
+    html += `<text x="${x2 - 46}" y="${y2 - 6}" font-size="11" fill="${c}" opacity="${dim ? .25 : 1}" font-weight="600">${a.a ? a.s : a.ns}%</text>`;
+  });
+  svg.innerHTML = html;
+}
+
+function attrSide(s, a, acordOnly) {
+  const un = s.attrs.filter(x => !x.a).map(x => x.c);
+  const head = `<h2>${esc(s.company)}: attribute matches</h2>
+    <div class="lg"><span><span class="ln" style="border-color:#16a34a"></span>exact or synonym/abbreviation match</span>
+      <span><span class="ln" style="border-color:#d97706;border-top-style:dashed"></span>similar name — needs review</span>
+      <span><span class="ln" style="border-color:#f87171;border-top-style:dotted"></span>closest candidate below threshold (not matched)</span></div>
+    <div><b>${s.matched} of ${s.total}</b> company attributes matched${Object.keys(s.targets).length ? ` · into related: ${Object.entries(s.targets).map(([k, v]) => `${esc(k)} (${v})`).join(', ')}` : ''}.</div>
+    ${un.length ? `<h3>Unmatched (${un.length})</h3><div style="color:#b91c1c">${un.map(esc).join(', ')}</div>` : ''}`;
+  let body = '<p class="muted" style="margin-top:14px">Click any attribute to see both definitions and why it was (or was not) matched.</p>';
+  if (a) {
+    body = `<h3>Selected</h3>
+      <div class="def"><div class="k">Company · ${esc(s.company)}</div><div><b>${esc(a.c)}</b> <span class="muted">${esc(a.ct)}</span></div>
+        <div style="color:#475569">${esc(a.cd) || '<i class="muted">no description in file</i>'}</div></div>
+      ${a.a ? `<div class="def"><div class="k">ACORD · ${esc(a.e)} <span class="pill ${a.via === 'aligned' ? 'al' : 'rel'}">${a.via}</span></div>
+        <div><b>${esc(a.a)}</b> <span class="muted">${esc(a.at)}</span> · <b style="color:${LINE[strength(a)]}">${a.s}%</b> ${esc(a.how)}</div>
+        <div><code>${esc(a.p)}</code></div><div style="color:#475569;margin-top:4px">${esc(a.ad) || '<i class="muted">no description in file</i>'}</div></div>`
+      : `<div class="def" style="border-color:#fecaca;background:#fef2f2"><div class="k" style="color:#b91c1c">No ACORD match</div>
+        ${a.na ? `<div>Closest: <b>${esc(a.ne)}.${esc(a.na)}</b> · ${a.ns}%</div>` : ''}</div>`}
+      <div class="def" style="background:#f8fafc"><div class="k">Why</div><div>${esc(a.r)}</div></div>`;
+  } else if (acordOnly) {
+    const m = (D.acordAttrs[acordOnly.e] || []).find(x => x.n === acordOnly.n) || {};
+    body = `<h3>ACORD attribute (not mapped)</h3><div class="def"><div class="k">${esc(acordOnly.e)}</div><div><b>${esc(acordOnly.n)}</b> <span class="muted">${esc(m.t)}</span>${m.req ? ' <span class="pill un">required</span>' : ''}</div>
+      <div style="color:#475569">${esc(m.d) || '<i class="muted">no description in file</i>'}</div></div>
+      <p class="muted">No company attribute maps to it${m.req ? ' — it is required in ACORD, so check whether the company model is missing it' : ''}.</p>`;
+  }
+  $('aSide').innerHTML = head + body;
+}
+
+function renderTable(s, attrs) {
+  let html = '<tr><th>Company attribute</th><th>Type</th><th>ACORD path</th><th>ACORD type</th><th class="num">Score</th><th>Via</th><th>Match type</th><th>Why</th></tr>';
+  attrs.forEach(a => { html += `<tr class="${a.a ? '' : 'unm'}"><td class="c"><b>${esc(a.c)}</b></td><td>${esc(a.ct)}</td>
+    <td>${a.a ? `<code>${esc(a.p)}</code>` : '<span class="pill un">unmatched</span>'}</td><td>${esc(a.at)}</td>
+    <td class="num">${a.a ? a.s + '%' : ''}</td><td>${a.via ? `<span class="pill ${a.via === 'aligned' ? 'al' : 'rel'}">${a.via}</span>` : ''}</td>
+    <td>${esc(a.how)}</td><td style="max-width:420px;color:#475569">${esc(a.r)}</td></tr>`; });
+  $('aTbl').innerHTML = html; attrSide(s, attrs.find(a => a.c === aSel));
+}
+$('aEnt').addEventListener('input', () => { aSel = null; renderAttrs(); });
+['aAll', 'aNear', 'aQ'].forEach(id => $(id).addEventListener('input', renderAttrs));
+$('mVis').onclick = () => { aMode = 'vis'; $('mVis').classList.add('on'); $('mTbl').classList.remove('on'); renderAttrs(); };
+$('mTbl').onclick = () => { aMode = 'tbl'; $('mTbl').classList.add('on'); $('mVis').classList.remove('on'); renderAttrs(); };
+window.addEventListener('resize', () => { if ($('attrView').style.display !== 'none') renderAttrs(); });
+
+function tab(i) {
+  $('t1').classList.toggle('on', i === 1); $('t2').classList.toggle('on', i === 2);
+  $('bar').style.display = i === 1 ? '' : 'none';
+  $('net').style.display = $('side').style.display = i === 1 ? '' : 'none';
+  $('attrView').style.display = i === 2 ? 'grid' : 'none';
+  if (i === 2) renderAttrs(); else net.redraw();
+}
+$('t1').onclick = () => tab(1); $('t2').onclick = () => tab(2);
+renderSide(); refresh();
+</script>
+</body>
+</html>

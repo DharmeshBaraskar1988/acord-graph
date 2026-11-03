@@ -9,8 +9,11 @@ import networkx as nx
 
 from .model import AcordModel
 
-PALETTE = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#db2777",
-           "#65a30d", "#7c3aed", "#ea580c", "#0d9488", "#4f46e5", "#be123c", "#ca8a04"]
+# orange is reserved for custom / company components, so no domain gets an orange tone
+CUSTOM_COLOR = "#f97316"   # reserved for custom / company components
+
+PALETTE = ["#2563eb", "#16a34a", "#9333ea", "#dc2626", "#0891b2", "#db2777", "#65a30d",
+           "#4f46e5", "#0d9488", "#be123c", "#7c3aed", "#0369a1", "#a21caf", "#15803d"]
 EDGE_STYLE = {
     "composition": {"color": "#475569", "dashes": False, "arrows": "to"},
     "association": {"color": "#2563eb", "dashes": False, "arrows": "to"},
@@ -100,41 +103,95 @@ def _cluster_of(g: nx.MultiDiGraph, nid: str, d: dict) -> str:
     return d.get("domain") or "Unassigned"
 
 
+def _separate(pos: dict, widths: dict, height: float = 58, gap: float = 26, rounds: int = 60) -> dict:
+    """Push overlapping entity boxes apart (keeps the overall shape of the layout)."""
+    pos = {k: [x, y] for k, (x, y) in pos.items()}
+    keys = list(pos)
+    for _ in range(rounds):
+        moved = False
+        for i in range(len(keys)):
+            a = keys[i]
+            for j in range(i + 1, len(keys)):
+                b = keys[j]
+                dx, dy = pos[b][0] - pos[a][0], pos[b][1] - pos[a][1]
+                ox = (widths[a] + widths[b]) / 2 + gap - abs(dx)
+                oy = height + gap - abs(dy)
+                if ox > 0 and oy > 0:
+                    moved = True
+                    if ox / (widths[a] + widths[b]) < oy / (2 * height):   # cheaper to separate sideways
+                        s_ = (1 if dx >= 0 else -1) * ox / 2
+                        pos[a][0] -= s_; pos[b][0] += s_
+                    else:
+                        s_ = (1 if dy >= 0 else -1) * oy / 2
+                        pos[a][1] -= s_; pos[b][1] += s_
+        if not moved:
+            break
+    return {k: (v[0], v[1]) for k, v in pos.items()}
+
+
 def layout(g: nx.MultiDiGraph) -> dict[str, tuple[float, float]]:
-    """Domain-clustered layout: each domain is laid out on its own, then the
-    clusters are packed in rows (largest first) so domains never overlap."""
+    """Domain-clustered layout. Entities of each domain are laid out on their own and the
+    domains are packed in rows; code lists and user stories are placed as small satellites
+    around the entity they belong to, so they never crowd the entities."""
+    import math
+    sat_kinds = ("codelist", "story")
+    core = [n for n, d in g.nodes(data=True) if d["kind"] not in sat_kinds]
     clusters: dict[str, list[str]] = {}
-    for nid, d in g.nodes(data=True):
-        clusters.setdefault(_cluster_of(g, nid, d), []).append(nid)
-    und = nx.Graph(g.to_undirected())
+    for nid in core:
+        clusters.setdefault(_cluster_of(g, nid, g.nodes[nid]), []).append(nid)
+    und = nx.Graph(g.subgraph(core).to_undirected())
+    sats: dict[str, list[str]] = {}
+    for n, d in g.nodes(data=True):
+        if d["kind"] in sat_kinds:
+            owners = [v for _, v in g.out_edges(n)] if d["kind"] == "story" else [u for u, _ in g.in_edges(n)]
+            if owners:
+                sats.setdefault(sorted(owners)[0], []).append(n)
     blocks = []
     for dom, members in clusters.items():
         sub = und.subgraph(members)
         n = len(members)
-        r = 40 + 62 * n ** 0.5
+        r = 60 + 105 * n ** 0.5
         if n == 1:
             pos = {members[0]: (0.0, 0.0)}
         else:
             init = nx.circular_layout(sub)
-            pos = nx.spring_layout(sub, pos=init, seed=7, k=2.2 / n ** 0.5, iterations=200)
+            pos = nx.spring_layout(sub, pos=init, seed=7, k=2.6 / n ** 0.5, iterations=120 if n > 150 else 250)
             xs = [p[0] for p in pos.values()]; ys = [p[1] for p in pos.values()]
             cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
             span = max(max(xs) - min(xs), max(ys) - min(ys), 1e-6) / 2
             pos = {k: ((p[0] - cx) / span * r, (p[1] - cy) / span * r * 0.8) for k, p in pos.items()}
-        blocks.append((dom, pos, 2 * r + 290, 1.6 * r + 250))
+            pos = _separate(pos, {k: 9 * len(str(g.nodes[k].get("label", k))) + 60 for k in pos})
+            xs = [p[0] for p in pos.values()]; ys = [p[1] for p in pos.values()]
+            r = max(r, (max(xs) - min(xs)) / 2, (max(ys) - min(ys)) / 1.6)
+        blocks.append((dom, pos, 2 * r + 330, 1.6 * r + 300))
     blocks.sort(key=lambda b: -b[2] * b[3])
     total = sum(w * h for _, _, w, h in blocks)
     row_w = max(max((b[2] for b in blocks), default=0), (total ** 0.5) * 1.5)
     out: dict[str, tuple[float, float]] = {}
+    centers: dict[str, tuple[float, float]] = {}
     x = y = row_h = 0.0
     for dom, pos, w, h in blocks:
         if x > 0 and x + w > row_w:
             x, y, row_h = 0.0, y + row_h, 0.0
         cx, cy = x + w / 2, y + h / 2
+        centers[dom] = (cx, cy)
         for k, (px, py) in pos.items():
             out[k] = (cx + px, cy + py)
         x += w
         row_h = max(row_h, h)
+    # satellites: an arc facing away from the domain centre
+    for owner, items in sats.items():
+        if owner not in out:
+            continue
+        ox, oy = out[owner]
+        ccx, ccy = centers.get(_cluster_of(g, owner, g.nodes[owner]), (ox, oy + 1))
+        base = math.atan2(oy - ccy, ox - ccx) if (ox, oy) != (ccx, ccy) else -math.pi / 2
+        k = len(items)
+        spread = min(2 * math.pi * 0.9, 0.42 * k)
+        ring = 70 + 6 * max(0, k - 6)
+        for i, nid in enumerate(sorted(items)):
+            a = base + (i - (k - 1) / 2) * (spread / max(k - 1, 1)) if k > 1 else base
+            out[nid] = (ox + ring * math.cos(a), oy + ring * math.sin(a))
     return out
 
 
@@ -168,11 +225,14 @@ def _payload(model: AcordModel, g: nx.MultiDiGraph) -> dict:
                             font={**font, "color": "#6b7280", "size": 13, "ital": {"size": 10, "color": "#9ca3af"}},
                             shapeProperties={"borderDashes": [4, 3], "borderRadius": 8}, margin=10, borderWidth=1)
             else:
+                if node["origin"] == "custom":
+                    color = CUSTOM_COLOR          # company / custom components always in the reserved colour
+                border = CUSTOM_COLOR if node["origin"] in ("custom", "extended") else color
                 node.update(shape="box", margin={"top": 9, "bottom": 9, "left": 13, "right": 13},
-                            borderWidth=2 if len(used_in) > 1 else 1.5,
-                            color={"background": _tint(color, 0.88), "border": color,
-                                   "highlight": {"background": _tint(color, 0.7), "border": color},
-                                   "hover": {"background": _tint(color, 0.8), "border": color}},
+                            borderWidth=2.5 if node["origin"] == "extended" else (2 if len(used_in) > 1 else 1.5),
+                            color={"background": _tint(color, 0.85 if node["origin"] == "custom" else 0.88), "border": border,
+                                   "highlight": {"background": _tint(color, 0.7), "border": border},
+                                   "hover": {"background": _tint(color, 0.8), "border": border}},
                             font={**font, "color": "#0f172a", "size": 14,
                                   "ital": {"size": 10, "color": color, "face": font["face"]},
                                   "bold": {"color": "#0f172a", "size": 14, "face": font["face"]}},
@@ -251,6 +311,7 @@ def _payload(model: AcordModel, g: nx.MultiDiGraph) -> dict:
             "removed": {"entities": len(model.removed_entities), "attributes": len(model.removed_attributes),
                         "codelists": len(model.removed_codelists),
                         "codes": sum(len(x) for x in model.removed_codes.values())},
+            "big": sum(1 for n in nodes if n["kind"] == "entity") > 80 or sum(1 for n in nodes if n["kind"] == "codelist") > 60,
             "stats": {"entities": len(model.entities), "codelists": len(model.codelists),
                       "stories": len(model.stories), "relationships": len(model.relationships())}}
 

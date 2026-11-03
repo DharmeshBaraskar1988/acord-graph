@@ -1,0 +1,192 @@
+{
+  "x-custom": true,
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Company claim model (illustrative)",
+    "version": "3"
+  },
+  "components": {
+    "schemas": {
+      "LossEventModel_v3": {
+        "type": "object",
+        "description": "Company claim master record",
+        "properties": {
+          "claimNo": {
+            "type": "string"
+          },
+          "lossDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "lossCause": {
+            "type": "string"
+          },
+          "lossNarrative": {
+            "type": "string"
+          },
+          "dateReported": {
+            "type": "string",
+            "format": "date"
+          },
+          "claimStatus": {
+            "type": "string"
+          },
+          "catastropheCode": {
+            "type": "string"
+          },
+          "internalSegment": {
+            "type": "string"
+          },
+          "claimComponents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimComponentModel_v3"
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimPaymentsModel_v3"
+            }
+          },
+          "lossLocation": {
+            "$ref": "#/components/schemas/LocationModel"
+          },
+          "policeReport": {
+            "$ref": "#/components/schemas/PoliceReportModel"
+          },
+          "claimants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimantModel"
+            }
+          }
+        }
+      },
+      "ClaimComponentModel_v3": {
+        "type": "object",
+        "description": "Coverage-level component of a claim (feature)",
+        "properties": {
+          "componentId": {
+            "type": "string"
+          },
+          "coverageCode": {
+            "type": "string"
+          },
+          "componentStatus": {
+            "type": "string"
+          },
+          "deductibleAmount": {
+            "type": "number"
+          },
+          "reserveAmount": {
+            "type": "number"
+          },
+          "reserveType": {
+            "type": "string"
+          },
+          "limitAmount": {
+            "type": "number"
+          },
+          "adjusterNote": {
+            "type": "string"
+          },
+          "subrogationFlag": {
+            "type": "boolean"
+          },
+          "salvageEstimate": {
+            "type": "number"
+          }
+        }
+      },
+      "ClaimPaymentsModel_v3": {
+        "type": "object",
+        "properties": {
+          "paymentAmount": {
+            "type": "number"
+          },
+          "paymentDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "payeeName": {
+            "type": "string"
+          }
+        }
+      },
+      "LocationModel": {
+        "type": "object",
+        "properties": {
+          "locationNo": {
+            "type": "integer"
+          },
+          "address": {
+            "$ref": "#/components/schemas/AddressModel_v3"
+          }
+        }
+      },
+      "AddressModel_v3": {
+        "type": "object",
+        "properties": {
+          "line1": {
+            "type": "string"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "stateCode": {
+            "type": "string"
+          },
+          "zip": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "geoCodeAccuracy": {
+            "type": "string"
+          }
+        }
+      },
+      "ClaimantModel": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "emailAddress": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/AddressModel_v3"
+          }
+        }
+      },
+      "PoliceReportModel": {
+        "type": "object",
+        "properties": {
+          "reportNumber": {
+            "type": "string"
+          },
+          "agency": {
+            "type": "string"
+          },
+          "reportDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  }
+}
