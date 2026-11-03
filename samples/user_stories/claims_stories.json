@@ -1,0 +1,40 @@
+{
+  "userStories": [
+    {
+      "id": "US-201",
+      "title": "First notice of loss for an auto collision",
+      "description": "As a claims intake agent I want to record a first notice of loss against an in-force policy so that an adjuster can be assigned.",
+      "domain": "Claims",
+      "entities": ["Claim", "Policy", "Party", "Vehicle"],
+      "acceptanceCriteria": ["Loss date is required", "Loss cause must be a valid LossCauseCd"],
+      "sample": {
+        "entity": "Claim",
+        "id": "CLM-77",
+        "claimNumber": "C-2026-0042",
+        "lossDt": "2026-10-28",
+        "lossCauseCd": "Collision",
+        "claimStatusCd": "Open",
+        "policy": "POL-0001",
+        "lossLocation": {"addr1": "I-35 exit 234", "city": "Austin", "stateProvCd": "TX"},
+        "claimants": [{"id": "P-9", "partyTypeCd": "Person", "name": {"givenName": "Leo", "surname": "Park"}, "injuryDesc": "whiplash"}],
+        "involvedVehicle": {"vin": "1HGCM82633A004352", "modelYear": 2022},
+        "reserves": [{"reserveTypeCd": "Indemnity", "reserveAmt": 4500}]
+      }
+    },
+    {
+      "id": "US-202",
+      "title": "Report a homeowners water loss",
+      "description": "As a policyholder I want to report water damage at my home via the portal.",
+      "entities": ["Claim", "Location"],
+      "sample": {
+        "Claim": {
+          "lossDt": "2026-10-30",
+          "lossCauseCd": "Flood",
+          "policy": "POL-0099",
+          "lossLocation": {"addr1": "5 Lake Rd", "city": "Chicago", "stateProvCd": "IL", "countryCd": "US"},
+          "Inspection": {"inspectorName": "TBD"}
+        }
+      }
+    }
+  ]
+}

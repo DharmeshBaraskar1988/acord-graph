@@ -1,0 +1,23 @@
+{
+  "codeLists": {
+    "PartyTypeCd": {"description": "Kind of party", "values": [
+      {"code": "Person", "description": "Natural person"}, {"code": "Organization", "description": "Legal entity"}]},
+    "StateProvCd": {"description": "US state / Canadian province (subset)", "values": [
+      {"code": "CA", "description": "California"}, {"code": "NY", "description": "New York"},
+      {"code": "TX", "description": "Texas"}, {"code": "IL", "description": "Illinois"}, {"code": "ON", "description": "Ontario"}]},
+    "CountryCd": {"description": "ISO 3166 country (subset)", "values": ["US", "CA", "GB", "IN"]},
+    "AddressTypeCd": {"values": [{"code": "MailingAddress"}, {"code": "StreetAddress"}, {"code": "BillingAddress"}]},
+    "LOBCd": {"description": "Line of business", "values": [
+      {"code": "AUTOP", "description": "Personal auto"}, {"code": "HOME", "description": "Homeowners"},
+      {"code": "CGL", "description": "Commercial general liability"}, {"code": "WORK", "description": "Workers compensation"}]},
+    "PolicyStatusCd": {"values": [{"code": "Quote"}, {"code": "InForce"}, {"code": "Cancelled"}, {"code": "Expired"}]},
+    "CoverageCd": {"description": "Coverage (subset)", "values": [
+      {"code": "BI", "description": "Bodily injury liability"}, {"code": "PD", "description": "Property damage liability"},
+      {"code": "COLL", "description": "Collision"}, {"code": "COMP", "description": "Comprehensive"},
+      {"code": "DWELL", "description": "Dwelling"}]},
+    "LossCauseCd": {"values": [{"code": "Collision"}, {"code": "Theft"}, {"code": "Fire"}, {"code": "Hail"}, {"code": "Water"}]},
+    "ClaimStatusCd": {"values": [{"code": "Open"}, {"code": "Closed"}, {"code": "Reopened"}]},
+    "VehicleBodyTypeCd": {"values": [{"code": "SED", "description": "Sedan"}, {"code": "SUV"}, {"code": "PU", "description": "Pickup"}]},
+    "VehicleUseCd": {"values": [{"code": "Pleasure"}, {"code": "Commute"}, {"code": "Business"}]}
+  }
+}

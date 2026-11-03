@@ -1,0 +1,54 @@
+{
+  "x-custom": true,
+  "openapi": "3.0.3",
+  "info": {"title": "Carrier custom extensions (illustrative)", "version": "1.0"},
+  "components": {
+    "schemas": {
+      "Address": {
+        "type": "object",
+        "description": "Carrier extension of the standard Address",
+        "properties": {
+          "addr1": {"type": "string", "maxLength": 100, "description": "Widened to 100 for international addresses"},
+          "geoLatitude": {"type": "number"},
+          "geoLongitude": {"type": "number"},
+          "verifiedInd": {"type": "boolean", "description": "Address verified by the geocoding service"}
+        }
+      },
+      "CustomVehicle": {
+        "type": "object",
+        "description": "Carrier vehicle telematics extension",
+        "properties": {
+          "telematicsDeviceId": {"type": "string"},
+          "annualMileage": {"type": "integer"}
+        }
+      },
+      "Policy": {
+        "type": "object",
+        "properties": {
+          "documents": {"type": "array", "items": {"$ref": "#/components/schemas/Document"}},
+          "loyaltyTier": {"$ref": "#/components/schemas/LoyaltyProgram"}
+        }
+      },
+      "Claim": {
+        "type": "object",
+        "properties": {
+          "documents": {"type": "array", "items": {"$ref": "#/components/schemas/Document"}}
+        }
+      },
+      "Document": {
+        "type": "object",
+        "description": "Stored document (dec page, photo, police report). No domain declared.",
+        "properties": {
+          "documentTypeCd": {"type": "string"},
+          "uri": {"type": "string"},
+          "receivedDt": {"type": "string", "format": "date"}
+        },
+        "required": ["uri"]
+      },
+      "LoyaltyProgram": {
+        "type": "object",
+        "properties": {"tierCd": {"type": "string", "enum": ["Silver", "Gold", "Platinum"]}, "sinceDt": {"type": "string", "format": "date"}}
+      }
+    }
+  }
+}

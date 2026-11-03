@@ -1,0 +1,31 @@
+{
+  "domain": "Auto",
+  "objects": [
+    {
+      "name": "Vehicle",
+      "description": "Private passenger or commercial vehicle insured or involved in a loss.",
+      "attributes": [
+        {"name": "vin", "dataType": "string", "required": "Y", "maxLength": 17, "definition": "Vehicle identification number"},
+        {"name": "modelYear", "dataType": "integer", "required": "Y"},
+        {"name": "manufacturer", "dataType": "string"},
+        {"name": "vehicleBodyTypeCd", "dataType": "string", "codeList": "VehicleBodyTypeCd"},
+        {"name": "vehicleUseCd", "dataType": "string", "codeList": "VehicleUseCd"},
+        {"name": "garagingAddress", "refEntity": "Address", "cardinality": "0..1"},
+        {"name": "drivers", "refEntity": "Driver", "cardinality": "0..*"}
+      ]
+    },
+    {
+      "name": "Driver",
+      "extends": "Party",
+      "description": "Party licensed to operate a vehicle.",
+      "attributes": [
+        {"name": "licenseNumber", "dataType": "string", "required": "Y"},
+        {"name": "licenseStateProvCd", "dataType": "string", "codeList": "StateProvCd"},
+        {"name": "relationshipToInsuredCd", "dataType": "string", "codeList": "RelationshipCd"}
+      ],
+      "relationships": [
+        {"target": "Claim", "name": "accidentHistory", "type": "association", "cardinality": "0..*"}
+      ]
+    }
+  ]
+}

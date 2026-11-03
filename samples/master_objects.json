@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Illustrative P&C canonical master objects (sample, not ACORD-published content)",
+  "$defs": {
+    "BaseObject": {
+      "type": "object", "x-acord-domain": "Common", "abstract": true,
+      "description": "Common identity and audit fields inherited by every business object.",
+      "properties": {
+        "id": {"type": "string", "description": "Unique identifier of the object"},
+        "createdDt": {"type": "string", "format": "date-time", "description": "Creation timestamp"}
+      },
+      "required": ["id"]
+    },
+    "Party": {
+      "x-acord-domain": "Party",
+      "description": "A person or organization that plays one or more roles (insured, claimant, producer).",
+      "allOf": [{"$ref": "#/$defs/BaseObject"}, {
+        "type": "object",
+        "properties": {
+          "partyTypeCd": {"type": "string", "x-codelist": "PartyTypeCd", "description": "Person or organization"},
+          "name": {"$ref": "#/$defs/NameInfo", "description": "Legal name"},
+          "addresses": {"type": "array", "items": {"$ref": "#/$defs/Address"}, "description": "Postal addresses"},
+          "communications": {"type": "array", "items": {"$ref": "#/$defs/Communication"}},
+          "birthDt": {"type": "string", "format": "date"},
+          "taxId": {"type": "string", "maxLength": 11}
+        },
+        "required": ["partyTypeCd", "name"]
+      }]
+    },
+    "NameInfo": {
+      "type": "object", "x-acord-domain": "Party",
+      "description": "Structured name of a person or commercial name of an organization.",
+      "properties": {
+        "givenName": {"type": "string", "maxLength": 50},
+        "surname": {"type": "string", "maxLength": 50},
+        "commercialName": {"type": "string"}
+      }
+    },
+    "Address": {
+      "type": "object", "x-acord-domain": "Location",
+      "description": "Postal address.",
+      "properties": {
+        "addressTypeCd": {"type": "string", "description": "Mailing, physical, billing"},
+        "addr1": {"type": "string", "maxLength": 60},
+        "city": {"type": "string"},
+        "stateProvCd": {"type": "string", "description": "State or province code"},
+        "postalCode": {"type": "string", "pattern": "^[0-9]{5}(-[0-9]{4})?$"},
+        "countryCd": {"type": "string", "$comment": "linked to code list by name"}
+      },
+      "required": ["addr1", "city", "stateProvCd"]
+    },
+    "Communication": {
+      "type": "object", "x-acord-domain": "Party",
+      "properties": {
+        "communicationTypeCd": {"type": "string", "enum": ["Email", "Phone", "Fax"]},
+        "value": {"type": "string"}
+      },
+      "required": ["communicationTypeCd", "value"]
+    },
+    "Policy": {
+      "x-acord-domain": "Policy",
+      "description": "Contract of insurance between the insurer and the named insured.",
+      "allOf": [{"$ref": "#/$defs/BaseObject"}, {
+        "type": "object",
+        "properties": {
+          "policyNumber": {"type": "string"},
+          "lobCd": {"type": "string", "x-codelist": "LOBCd", "description": "Line of business"},
+          "policyStatusCd": {"type": "string", "x-codelist": "PolicyStatusCd"},
+          "effectiveDt": {"type": "string", "format": "date"},
+          "expirationDt": {"type": "string", "format": "date"},
+          "writtenPremiumAmt": {"type": "number"},
+          "namedInsured": {"$ref": "#/$defs/Party"},
+          "producer": {"$ref": "#/$defs/Producer"},
+          "coverages": {"type": "array", "items": {"$ref": "#/$defs/Coverage"}},
+          "insuredVehicles": {"type": "array", "items": {"$ref": "#/$defs/Vehicle"}},
+          "locations": {"type": "array", "items": {"$ref": "#/$defs/Location"}}
+        },
+        "required": ["policyNumber", "lobCd", "effectiveDt", "namedInsured"]
+      }]
+    },
+    "Coverage": {
+      "type": "object", "x-acord-domain": "Policy",
+      "properties": {
+        "coverageCd": {"type": "string", "x-codelist": "CoverageCd"},
+        "limits": {"type": "array", "items": {"$ref": "#/$defs/Limit"}},
+        "deductibleAmt": {"type": "number"},
+        "premiumAmt": {"type": "number"}
+      },
+      "required": ["coverageCd"]
+    },
+    "Limit": {
+      "type": "object", "x-acord-domain": "Policy",
+      "properties": {
+        "limitAppliesToCd": {"type": "string", "enum": ["PerOcc", "Aggregate", "PerPerson"]},
+        "limitAmt": {"type": "number"}
+      }
+    },
+    "Location": {
+      "type": "object", "x-acord-domain": "Location",
+      "properties": {
+        "locationNumber": {"type": "integer"},
+        "address": {"$ref": "#/$defs/Address"},
+        "constructionCd": {"type": "string"}
+      }
+    },
+    "Claim": {
+      "x-acord-domain": "Claims",
+      "description": "First notice of loss and subsequent claim handling record.",
+      "allOf": [{"$ref": "#/$defs/BaseObject"}, {
+        "type": "object",
+        "properties": {
+          "claimNumber": {"type": "string"},
+          "lossDt": {"type": "string", "format": "date"},
+          "lossCauseCd": {"type": "string", "x-codelist": "LossCauseCd"},
+          "claimStatusCd": {"type": "string", "x-codelist": "ClaimStatusCd"},
+          "policy": {"$ref": "#/$defs/Policy", "x-relationship": "reference", "description": "Policy in force at date of loss"},
+          "lossLocation": {"$ref": "#/$defs/Address"},
+          "claimants": {"type": "array", "items": {"$ref": "#/$defs/Party"}},
+          "reserves": {"type": "array", "items": {"$ref": "#/$defs/Reserve"}},
+          "involvedVehicle": {"$ref": "#/$defs/Vehicle"}
+        },
+        "required": ["lossDt", "policy"]
+      }]
+    },
+    "Reserve": {
+      "type": "object", "x-acord-domain": "Claims",
+      "properties": {
+        "reserveTypeCd": {"type": "string", "enum": ["Indemnity", "Expense"]},
+        "reserveAmt": {"type": "number"}
+      }
+    }
+  }
+}

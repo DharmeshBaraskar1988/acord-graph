@@ -1,0 +1,42 @@
+{
+  "storyId": "US-101",
+  "title": "Issue a new personal auto policy",
+  "asA": "underwriter",
+  "iWant": "to bind a personal auto policy with named insured, vehicle and coverages",
+  "soThat": "the policy can be issued and documents produced",
+  "entities": ["Policy", "Party", "Vehicle", "Coverage"],
+  "acceptanceCriteria": [
+    "Named insured must have at least one mailing address",
+    "Every vehicle must have a valid VIN and model year",
+    "Coverage codes must come from the CoverageCd code list"
+  ],
+  "samples": [
+    {
+      "Policy": {
+        "id": "POL-0001",
+        "policyNumber": "PA-2026-000123",
+        "lobCd": "AUTOP",
+        "policyStatusCd": "InForce",
+        "effectiveDt": "2026-11-01",
+        "expirationDt": "2027-05-01",
+        "writtenPremiumAmt": 742.5,
+        "namedInsured": {
+          "id": "P-1",
+          "partyTypeCd": "Person",
+          "name": {"givenName": "Asha", "surname": "Rao"},
+          "addresses": [{"addressTypeCd": "MailingAddress", "addr1": "12 Elm St", "city": "Austin", "stateProvCd": "TX", "postalCode": "73301", "countryCd": "US"}],
+          "communications": [{"communicationTypeCd": "Email", "value": "asha@example.com"}]
+        },
+        "coverages": [
+          {"coverageCd": "BI", "limits": [{"limitAppliesToCd": "PerPerson", "limitAmt": 50000}], "premiumAmt": 310},
+          {"coverageCd": "COLL", "deductibleAmt": 500, "premiumAmt": 280},
+          {"coverageCd": "UMBI", "premiumAmt": 152.5}
+        ],
+        "insuredVehicles": [
+          {"vin": "1HGCM82633A004352", "modelYear": "2022", "manufacturer": "Honda", "vehicleBodyTypeCd": "SED", "vehicleUseCd": "Commute",
+           "drivers": [{"id": "P-1", "partyTypeCd": "Person", "name": {"givenName": "Asha", "surname": "Rao"}, "licenseNumber": "TX1234567", "licenseStateProvCd": "TX"}]}
+        ]
+      }
+    }
+  ]
+}
